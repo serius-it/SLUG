@@ -10,7 +10,7 @@ use crate::{
         window::WindowManager,
     },
 };
-use kaspa_consensus_core::block::Block;
+use kaspa_consensus_core::{block::Block, constants::MAX_SLUG_SUPPLY_SAN};
 use kaspa_database::prelude::StoreResultExt;
 use kaspa_hashes::Hash;
 use once_cell::unsync::Lazy;
@@ -73,7 +73,9 @@ impl BlockBodyProcessor {
 
                 let expected_subsidy = self.coinbase_manager.calc_block_subsidy(block.header.daa_score);
 
-                if data.subsidy != expected_subsidy {
+                if data.subsidy > expected_subsidy
+                    || (data.subsidy < expected_subsidy && data.cumulative_subsidy != MAX_SLUG_SUPPLY_SAN)
+                {
                     return Err(RuleError::WrongSubsidy(expected_subsidy, data.subsidy));
                 }
 
@@ -131,7 +133,7 @@ mod tests {
             block.header.hash_merkle_root = calc_hash_merkle_root(block.transactions.iter());
 
             assert_match!(
-                consensus.validate_and_insert_block(block.clone().to_immutable()).virtual_state_task.await, Err(RuleError::WrongSubsidy(expected,_)) if expected == 50000000000);
+                consensus.validate_and_insert_block(block.clone().to_immutable()).virtual_state_task.await, Err(RuleError::WrongSubsidy(expected,_)) if expected == 5000000);
 
             // The second time we send an invalid block we expect it to be a known invalid.
             assert_match!(
@@ -169,7 +171,7 @@ mod tests {
             let mut block = consensus.build_block_with_parents_and_transactions(7.into(), vec![6.into()], vec![]);
             block.transactions[0].payload[8..16].copy_from_slice(&(5_u64).to_le_bytes());
             block.header.hash_merkle_root = calc_hash_merkle_root(block.transactions.iter());
-            assert_match!(consensus.validate_and_insert_block(block.to_immutable()).virtual_state_task.await, Err(RuleError::WrongSubsidy(expected,_)) if expected == 44000000000);
+            assert_match!(consensus.validate_and_insert_block(block.to_immutable()).virtual_state_task.await, Err(RuleError::WrongSubsidy(expected,_)) if expected == 4400000);
         }
 
         {

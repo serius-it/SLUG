@@ -23,8 +23,8 @@ const { PrivateKey, RpcClient,
 const fs = require('fs');
 const path = require('path');
 
-const NETWORK_ID = 'devnet';
-const RPC_URL = 'ws://127.0.0.1:17610';
+const NETWORK_ID = 'slug-devnet';
+const RPC_URL = 'ws://127.0.0.1:19312';
 const PRIVATE_KEY = 'b99d75736a0fd0ae2da658959813d680474f5a740a9c970a7da867141596178f';
 
 const IMAGE_ID = '1ade4c062dee368276ef6610bd7de59d9b63c7ebe87d8d75a63c0e288895cb7d';

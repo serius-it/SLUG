@@ -754,18 +754,18 @@ impl UtxoContext {
         Ok(())
     }
 
-    pub async fn get_utxos(&self, addresses: Option<Vec<Address>>, min_amount_sompi: Option<u64>) -> Result<Vec<UtxoEntry>> {
+    pub async fn get_utxos(&self, addresses: Option<Vec<Address>>, min_amount_san: Option<u64>) -> Result<Vec<UtxoEntry>> {
         let utxos = &self.context().mature;
         let mut amount = 0;
         if let Some(addresses) = &addresses {
-            if let Some(min_amount_sompi) = min_amount_sompi {
+            if let Some(min_amount_san) = min_amount_san {
                 let mut amount = 0;
                 let filtered_utxos = utxos
                     .iter()
                     .filter_map(|utxo| {
                         if let Some(address) = utxo.address()
                             && addresses.contains(&address)
-                            && amount < min_amount_sompi
+                            && amount < min_amount_san
                         {
                             amount += utxo.amount();
                             return Some(utxo.entry().clone());
@@ -790,11 +790,11 @@ impl UtxoContext {
                 return Ok(filtered_utxos);
             }
         }
-        if let Some(min_amount_sompi) = min_amount_sompi {
+        if let Some(min_amount_san) = min_amount_san {
             let filtered_utxos = utxos
                 .iter()
                 .filter_map(|utxo| {
-                    if amount < min_amount_sompi {
+                    if amount < min_amount_san {
                         amount += utxo.amount();
                         return Some(utxo.entry().clone());
                     }

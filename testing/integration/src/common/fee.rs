@@ -4,7 +4,7 @@ use kaspa_consensus_core::{
     tx::Transaction,
 };
 
-// Minimum standard relay fee is 100 sompi/gram; use 101 for fixture slack.
+// Minimum standard relay fee is 100 san/gram; use 101 for fixture slack.
 pub(crate) const FEE_RATE: u64 = 101;
 
 // Mempool minimum relay fee uses post-Toccata cofactors immediately, so we normalize accordingly (factor / ratio between limits).

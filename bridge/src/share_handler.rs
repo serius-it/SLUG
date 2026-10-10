@@ -356,11 +356,8 @@ impl ShareHandler {
             let parts: Vec<&str> = submitted_identity.split('.').collect();
             let submitted_address = parts[0];
 
-            // Check if submitted address matches authorized address (case-insensitive, ignore prefix)
-            let submitted_clean = submitted_address.trim_start_matches("kaspa:").trim_start_matches("kaspatest:");
-            let authorized_clean = wallet_addr.trim_start_matches("kaspa:").trim_start_matches("kaspatest:");
-
-            if submitted_clean.to_lowercase() != authorized_clean.to_lowercase() {
+            // Require the complete SLUG network prefix to match the authorized address.
+            if !submitted_address.eq_ignore_ascii_case(&wallet_addr) {
                 debug!(
                     "Submit params[0] address mismatch: submitted '{}' vs authorized '{}' (using authorized)",
                     submitted_identity, wallet_addr
@@ -700,7 +697,7 @@ impl ShareHandler {
 
                 // Block found - submit it
                 // Only set the nonce - keep all other header fields from the real block template
-                // The header comes directly from the Kaspa node via get_block_template_call()
+                // The header comes directly from the SLUG node via get_block_template_call()
                 // We preserve: version, bits, timestamp, all hash fields, parents, scores, etc.
                 header_clone.nonce = nonce_val;
 
@@ -717,7 +714,7 @@ impl ShareHandler {
                     "{} {} {}",
                     LogColors::block("[BLOCK]"),
                     LogColors::label("Header Verification:"),
-                    "Using REAL header from Kaspa node block template"
+                    "Using REAL header from SLUG node block template"
                 );
                 debug!("{} {} {}", LogColors::block("[BLOCK]"), LogColors::label("  - Header Version:"), header_version);
                 debug!(
@@ -1778,7 +1775,7 @@ mod retention_tests {
         let handler = ShareHandler::new("test-instance".to_string());
         let ctx = test_ctx();
         *ctx.worker_name.lock() = "ghost".to_string();
-        *ctx.wallet_addr.lock() = "kaspatest:ghost".to_string();
+        *ctx.wallet_addr.lock() = "slugtest:ghost".to_string();
 
         handler.get_create_stats(&ctx);
         assert_eq!(handler.stats.lock().len(), 1);

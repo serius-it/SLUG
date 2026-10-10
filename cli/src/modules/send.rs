@@ -1,7 +1,7 @@
 use crate::imports::*;
 
 #[derive(Default, Handler)]
-#[help("Send a Kaspa transaction to a public address")]
+#[help("Send an SLG transaction to a public address")]
 pub struct Send;
 
 impl Send {
@@ -12,16 +12,16 @@ impl Send {
         let account = ctx.wallet().account()?;
 
         if argv.len() < 2 {
-            tprintln!(ctx, "usage: send <address> <amount> <priority fee>");
+            tprintln!(ctx, "usage: send <address> <amount-SLG> <priority-fee-SLG>");
             return Ok(());
         }
 
         let address = Address::try_from(argv.first().unwrap().as_str())?;
-        let amount_sompi = try_parse_required_nonzero_kaspa_as_sompi_u64(argv.get(1))?;
+        let amount_san = try_parse_required_nonzero_slg_as_san_u64(argv.get(1))?;
         // TODO fee_rate
         let fee_rate = None;
-        let priority_fee_sompi = try_parse_optional_kaspa_as_sompi_i64(argv.get(2))?.unwrap_or(0);
-        let outputs = PaymentOutputs::from((address.clone(), amount_sompi));
+        let priority_fee_san = try_parse_optional_slg_as_san_i64(argv.get(2))?.unwrap_or(0);
+        let outputs = PaymentOutputs::from((address.clone(), amount_san));
         let abortable = Abortable::default();
         let (wallet_secret, payment_secret) = ctx.ask_wallet_secret(Some(&account)).await?;
 
@@ -30,7 +30,7 @@ impl Send {
             .send(
                 outputs.into(),
                 fee_rate,
-                priority_fee_sompi.into(),
+                priority_fee_san.into(),
                 None,
                 wallet_secret,
                 payment_secret,
@@ -42,7 +42,7 @@ impl Send {
             .await?;
 
         tprintln!(ctx, "Send - {summary}");
-        tprintln!(ctx, "\nSending {} KAS to {address}, tx ids:", sompi_to_kaspa_string(amount_sompi));
+        tprintln!(ctx, "\nSending {} SLG to {address}, tx ids:", san_to_slg_string(amount_san));
         // tprintln!(ctx, "{}\n", ids.into_iter().map(|a| a.to_string()).collect::<Vec<_>>().join("\n"));
 
         Ok(())

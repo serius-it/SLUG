@@ -4,8 +4,8 @@ const { PrivateKey, RpcClient, ScriptBuilder, Opcodes,
     Encoding} = require('./kaspa');
 
 // Configuration
-const NETWORK_ID = 'devnet';
-const RPC_URL = 'ws://127.0.0.1:17610';
+const NETWORK_ID = 'slug-devnet';
+const RPC_URL = 'ws://127.0.0.1:19312';
 const PRIVATE_KEY = 'b99d75736a0fd0ae2da658959813d680474f5a740a9c970a7da867141596178f';
 
 // ZK Proof configuration - Hardcoded values

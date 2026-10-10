@@ -29,7 +29,7 @@ const MEMPOOL_TARGET: u64 = 10_000;
 const TX_COUNT: usize = 200_000;
 const TX_LEVEL_WIDTH: usize = 5_000;
 const TPS_PRESSURE: u64 = 40;
-const PREALLOC_AMOUNT_SOMPI: u64 = 1;
+const PREALLOC_AMOUNT_SAN: u64 = 1;
 const SUBMIT_TX_CLIENTS: usize = 2;
 
 /// `cargo test --release --package kaspa-testing-integration --lib --features devnet-prealloc -- rpc_perf_benchmarks::bench_rpc_high_load --exact --nocapture --ignored`
@@ -50,7 +50,7 @@ async fn bench_rpc_high_load() {
     let schnorr_key = secp256k1::Keypair::from_secret_key(secp256k1::SECP256K1, &prealloc_sk);
     let spk = pay_to_address_script(&prealloc_address);
 
-    let args = ArgsBuilder::simnet(TX_LEVEL_WIDTH as u64 * CONTRACT_FACTOR, PREALLOC_AMOUNT_SOMPI) // Use simnet with prealloc args
+    let args = ArgsBuilder::simnet(TX_LEVEL_WIDTH as u64 * CONTRACT_FACTOR, PREALLOC_AMOUNT_SAN) // Use simnet with prealloc args
         .prealloc_address(prealloc_address.clone()) // Set prealloc address
         .apply_args(Daemon::fill_args_with_random_ports)
         .utxoindex(true) // Ensure utxoindex is enabled for transaction validation

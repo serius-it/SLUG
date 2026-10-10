@@ -502,7 +502,7 @@ pub struct AccountsSendRequest {
     pub payment_secret: Option<Secret>,
     pub destination: PaymentDestination,
     pub fee_rate: Option<f64>,
-    pub priority_fee_sompi: Fees,
+    pub priority_fee_san: Fees,
     pub payload: Option<Vec<u8>>,
 }
 
@@ -563,7 +563,7 @@ pub struct AccountsPskbSendResponse {
 pub struct AccountsGetUtxosRequest {
     pub account_id: AccountId,
     pub addresses: Option<Vec<Address>>,
-    pub min_amount_sompi: Option<u64>,
+    pub min_amount_san: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
@@ -660,10 +660,10 @@ pub struct AccountsTransferRequest {
     pub destination_account_id: AccountId,
     pub wallet_secret: Secret,
     pub payment_secret: Option<Secret>,
-    pub transfer_amount_sompi: u64,
+    pub transfer_amount_san: u64,
     pub fee_rate: Option<f64>,
-    pub priority_fee_sompi: Option<Fees>,
-    // pub priority_fee_sompi: Fees,
+    pub priority_fee_san: Option<Fees>,
+    // pub priority_fee_san: Fees,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
@@ -681,7 +681,7 @@ pub struct AccountsEstimateRequest {
     pub account_id: AccountId,
     pub destination: PaymentDestination,
     pub fee_rate: Option<f64>,
-    pub priority_fee_sompi: Fees,
+    pub priority_fee_san: Fees,
     pub payload: Option<Vec<u8>>,
 }
 
@@ -821,7 +821,7 @@ pub struct AccountsCommitRevealManualRequest {
     pub wallet_secret: Secret,
     pub payment_secret: Option<Secret>,
     pub fee_rate: Option<f64>,
-    pub reveal_fee_sompi: u64,
+    pub reveal_fee_san: u64,
     pub payload: Option<Vec<u8>>,
 }
 
@@ -864,10 +864,10 @@ pub struct AccountsCommitRevealRequest {
     pub address_index: u32,
     pub script_sig: Vec<u8>,
     pub wallet_secret: Secret,
-    pub commit_amount_sompi: u64,
+    pub commit_amount_san: u64,
     pub payment_secret: Option<Secret>,
     pub fee_rate: Option<f64>,
-    pub reveal_fee_sompi: u64,
+    pub reveal_fee_san: u64,
     pub payload: Option<Vec<u8>>,
 }
 

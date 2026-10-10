@@ -2,6 +2,7 @@ use kaspa_consensus_core::{
     BlockHashMap, BlockHashSet,
     coinbase::*,
     config::params::ForkedParam,
+    constants::{MAX_SLUG_SUPPLY_SAN, SLUG_REWARD_SCALE},
     errors::coinbase::{CoinbaseError, CoinbaseResult},
     subnets,
     tx::{ScriptPublicKey, ScriptVec, Transaction, TransactionOutput},
@@ -12,11 +13,15 @@ use crate::{constants, model::stores::ghostdag::GhostdagData};
 
 const LENGTH_OF_BLUE_SCORE: usize = size_of::<u64>();
 const LENGTH_OF_SUBSIDY: usize = size_of::<u64>();
+const LENGTH_OF_CUMULATIVE_SUBSIDY: usize = size_of::<u64>();
 const LENGTH_OF_SCRIPT_PUB_KEY_VERSION: usize = size_of::<u16>();
 const LENGTH_OF_SCRIPT_PUB_KEY_LENGTH: usize = size_of::<u8>();
 
-const MIN_PAYLOAD_LENGTH: usize =
-    LENGTH_OF_BLUE_SCORE + LENGTH_OF_SUBSIDY + LENGTH_OF_SCRIPT_PUB_KEY_VERSION + LENGTH_OF_SCRIPT_PUB_KEY_LENGTH;
+const MIN_PAYLOAD_LENGTH: usize = LENGTH_OF_BLUE_SCORE
+    + LENGTH_OF_SUBSIDY
+    + LENGTH_OF_CUMULATIVE_SUBSIDY
+    + LENGTH_OF_SCRIPT_PUB_KEY_VERSION
+    + LENGTH_OF_SCRIPT_PUB_KEY_LENGTH;
 
 // We define a year as 365.25 days and a month as 365.25 / 12 = 30.4375
 // SECONDS_PER_MONTH = 30.4375 * 24 * 60 * 60
@@ -71,7 +76,7 @@ impl CoinbaseManager {
     ) -> Self {
         // Precomputed subsidy by month table for the actual block per second rate
         // Here values are rounded up so that we keep the same number of rewarding months as in the original 1 BPS table.
-        // In a 10 BPS network, the induced increase in total rewards is 51 KAS (see tests::calc_high_bps_total_rewards_delta())
+        // In a 10 BPS network, the induced increase in total rewards is 51 SLG (see tests::calc_high_bps_total_rewards_delta())
         let subsidy_by_month_table_before: SubsidyByMonthTable =
             core::array::from_fn(|i| SUBSIDY_BY_MONTH_TABLE[i].div_ceil(bps_history.before()));
         let subsidy_by_month_table_after: SubsidyByMonthTable =
@@ -97,6 +102,7 @@ impl CoinbaseManager {
     pub fn expected_coinbase_transaction<T: AsRef<[u8]>>(
         &self,
         daa_score: u64,
+        selected_parent_cumulative_subsidy: u64,
         miner_data: MinerData<T>,
         ghostdag_data: &GhostdagData,
         mergeset_rewards: &BlockHashMap<BlockRewardData>,
@@ -108,9 +114,9 @@ impl CoinbaseManager {
         // Note that combinatorically it is nearly impossible for a blue block to be non-DAA
         for blue in ghostdag_data.mergeset_blues.iter().filter(|h| !mergeset_non_daa.contains(h)) {
             let reward_data = mergeset_rewards.get(blue).unwrap();
-            if reward_data.subsidy + reward_data.total_fees > 0 {
-                outputs
-                    .push(TransactionOutput::new(reward_data.subsidy + reward_data.total_fees, reward_data.script_public_key.clone()));
+            let reward = reward_data.subsidy.checked_add(reward_data.total_fees).ok_or(CoinbaseError::SubsidyAccountingOverflow)?;
+            if reward > 0 {
+                outputs.push(TransactionOutput::new(reward, reward_data.script_public_key.clone()));
             }
         }
 
@@ -120,11 +126,12 @@ impl CoinbaseManager {
 
         for red in ghostdag_data.mergeset_reds.iter() {
             let reward_data = mergeset_rewards.get(red).unwrap();
-            if mergeset_non_daa.contains(red) {
-                red_reward += reward_data.total_fees;
+            let reward = if mergeset_non_daa.contains(red) {
+                reward_data.total_fees
             } else {
-                red_reward += reward_data.subsidy + reward_data.total_fees;
-            }
+                reward_data.subsidy.checked_add(reward_data.total_fees).ok_or(CoinbaseError::SubsidyAccountingOverflow)?
+            };
+            red_reward = red_reward.checked_add(reward).ok_or(CoinbaseError::SubsidyAccountingOverflow)?;
         }
 
         if red_reward > 0 {
@@ -132,8 +139,29 @@ impl CoinbaseManager {
         }
 
         // Build the current block's payload
-        let subsidy = self.calc_block_subsidy(daa_score);
-        let payload = self.serialize_coinbase_payload(&CoinbaseData { blue_score: ghostdag_data.blue_score, subsidy, miner_data })?;
+        let mut mergeset_subsidies = 0u64;
+        for merged_block in ghostdag_data.mergeset_blues.iter().chain(ghostdag_data.mergeset_reds.iter()) {
+            if *merged_block == ghostdag_data.selected_parent || mergeset_non_daa.contains(merged_block) {
+                continue;
+            }
+            let reward_data = mergeset_rewards.get(merged_block).unwrap();
+            mergeset_subsidies =
+                mergeset_subsidies.checked_add(reward_data.subsidy).ok_or(CoinbaseError::SubsidyAccountingOverflow)?;
+        }
+
+        let supply_before_current_subsidy = selected_parent_cumulative_subsidy
+            .checked_add(mergeset_subsidies)
+            .filter(|supply| *supply <= MAX_SLUG_SUPPLY_SAN)
+            .ok_or(CoinbaseError::MergesetSubsidiesExceedSupplyCap)?;
+        let remaining_supply = MAX_SLUG_SUPPLY_SAN - supply_before_current_subsidy;
+        let subsidy = self.calc_block_subsidy(daa_score).min(remaining_supply);
+        let cumulative_subsidy = supply_before_current_subsidy.checked_add(subsidy).ok_or(CoinbaseError::SubsidyAccountingOverflow)?;
+        let payload = self.serialize_coinbase_payload(&CoinbaseData {
+            blue_score: ghostdag_data.blue_score,
+            subsidy,
+            cumulative_subsidy,
+            miner_data,
+        })?;
 
         Ok(CoinbaseTransactionTemplate {
             tx: Transaction::new(constants::TX_VERSION_TOCCATA, vec![], outputs, 0, subnets::SUBNETWORK_ID_COINBASE, 0, payload),
@@ -142,6 +170,7 @@ impl CoinbaseManager {
     }
 
     pub fn serialize_coinbase_payload<T: AsRef<[u8]>>(&self, data: &CoinbaseData<T>) -> CoinbaseResult<Vec<u8>> {
+        Self::validate_cumulative_subsidy(data.subsidy, data.cumulative_subsidy)?;
         let script_pub_key_len = data.miner_data.script_public_key.script().len();
         if script_pub_key_len > self.coinbase_payload_script_public_key_max_len as usize {
             return Err(CoinbaseError::PayloadScriptPublicKeyLenAboveMax(
@@ -151,6 +180,7 @@ impl CoinbaseManager {
         }
         let payload: Vec<u8> = data.blue_score.to_le_bytes().iter().copied()                    // Blue score                   (u64)
             .chain(data.subsidy.to_le_bytes().iter().copied())                                  // Subsidy                      (u64)
+            .chain(data.cumulative_subsidy.to_le_bytes().iter().copied())                       // Cumulative issued subsidy    (u64)
             .chain(data.miner_data.script_public_key.version().to_le_bytes().iter().copied())   // Script public key version    (u16)
             .chain((script_pub_key_len as u8).to_le_bytes().iter().copied())                    // Script public key length     (u8)
             .chain(data.miner_data.script_public_key.script().iter().copied())                  // Script public key            
@@ -171,7 +201,7 @@ impl CoinbaseManager {
 
         // Keep only blue score and subsidy. Note that truncate does not modify capacity, so
         // the usual case where the payloads are the same size will not trigger a reallocation
-        payload.truncate(LENGTH_OF_BLUE_SCORE + LENGTH_OF_SUBSIDY);
+        payload.truncate(LENGTH_OF_BLUE_SCORE + LENGTH_OF_SUBSIDY + LENGTH_OF_CUMULATIVE_SUBSIDY);
         payload.extend(
             miner_data.script_public_key.version().to_le_bytes().iter().copied() // Script public key version (u16)
                 .chain((script_pub_key_len as u8).to_le_bytes().iter().copied()) // Script public key length  (u8)
@@ -195,6 +225,8 @@ impl CoinbaseManager {
 
         let blue_score = u64::from_le_bytes(parser.take(LENGTH_OF_BLUE_SCORE).try_into().unwrap());
         let subsidy = u64::from_le_bytes(parser.take(LENGTH_OF_SUBSIDY).try_into().unwrap());
+        let cumulative_subsidy = u64::from_le_bytes(parser.take(LENGTH_OF_CUMULATIVE_SUBSIDY).try_into().unwrap());
+        Self::validate_cumulative_subsidy(subsidy, cumulative_subsidy)?;
         let script_pub_key_version = u16::from_le_bytes(parser.take(LENGTH_OF_SCRIPT_PUB_KEY_VERSION).try_into().unwrap());
         let script_pub_key_len = u8::from_le_bytes(parser.take(LENGTH_OF_SCRIPT_PUB_KEY_LENGTH).try_into().unwrap());
 
@@ -216,12 +248,22 @@ impl CoinbaseManager {
             ScriptPublicKey::new(script_pub_key_version, ScriptVec::from_slice(parser.take(script_pub_key_len as usize)));
         let extra_data = parser.remaining;
 
-        Ok(CoinbaseData { blue_score, subsidy, miner_data: MinerData { script_public_key, extra_data } })
+        Ok(CoinbaseData { blue_score, subsidy, cumulative_subsidy, miner_data: MinerData { script_public_key, extra_data } })
+    }
+
+    fn validate_cumulative_subsidy(subsidy: u64, cumulative_subsidy: u64) -> CoinbaseResult<()> {
+        if cumulative_subsidy > MAX_SLUG_SUPPLY_SAN {
+            return Err(CoinbaseError::CumulativeSubsidyAboveSupplyCap(cumulative_subsidy));
+        }
+        if cumulative_subsidy < subsidy {
+            return Err(CoinbaseError::CumulativeSubsidyBelowBlockSubsidy(cumulative_subsidy, subsidy));
+        }
+        Ok(())
     }
 
     pub fn calc_block_subsidy(&self, daa_score: u64) -> u64 {
         if daa_score < self.deflationary_phase_daa_score {
-            return self.pre_deflationary_phase_base_subsidy;
+            return self.pre_deflationary_phase_base_subsidy / SLUG_REWARD_SCALE;
         }
 
         let subsidy_month = self.subsidy_month(daa_score) as usize;
@@ -230,7 +272,7 @@ impl CoinbaseManager {
         } else {
             &self.subsidy_by_month_table_before
         };
-        subsidy_table[subsidy_month.min(subsidy_table.len() - 1)]
+        subsidy_table[subsidy_month.min(subsidy_table.len() - 1)] / SLUG_REWARD_SCALE
     }
 
     /// Get the subsidy month as function of the current DAA score.
@@ -304,7 +346,7 @@ mod tests {
     use crate::params::MAINNET_PARAMS;
     use kaspa_consensus_core::{
         config::params::{ForkActivation, Params, SIMNET_PARAMS},
-        constants::SOMPI_PER_KASPA,
+        constants::{MAX_SLUG_SUPPLY_SAN, SAN_PER_SLG},
         network::{NetworkId, NetworkType},
         tx::scriptvec,
     };
@@ -325,9 +367,9 @@ mod tests {
 
         let delta = total_high_bps_rewards as i64 - total_rewards as i64;
 
-        println!("Total rewards: {} sompi => {} KAS", total_rewards, total_rewards / SOMPI_PER_KASPA);
-        println!("Total high bps rewards: {} sompi => {} KAS", total_high_bps_rewards, total_high_bps_rewards / SOMPI_PER_KASPA);
-        println!("Delta: {} sompi => {} KAS", delta, delta / SOMPI_PER_KASPA as i64);
+        println!("Total rewards: {} san => {} SLG", total_rewards, total_rewards / SAN_PER_SLG);
+        println!("Total high bps rewards: {} san => {} SLG", total_high_bps_rewards, total_high_bps_rewards / SAN_PER_SLG);
+        println!("Delta: {} san => {} SLG", delta, delta / SAN_PER_SLG as i64);
     }
 
     #[test]
@@ -389,9 +431,9 @@ mod tests {
                 println!("BASELINE:\t{}\tepochs, total emission: {}", baseline_epochs, baseline_total);
                 println!("CRESCENDO:\t{}\tepochs, total emission: {}, activation: {}", new_epochs, new_total, activation);
 
-                let diff = (new_total as i64 - baseline_total as i64) / SOMPI_PER_KASPA as i64;
-                assert!(diff.abs() <= 51, "activation: {}", activation);
-                println!("DIFF (KAS): {}", diff);
+                let diff = new_total as i64 - baseline_total as i64;
+                assert!(diff.abs() <= 5_100_000, "activation: {}", activation);
+                println!("DIFF (san): {}", diff);
             }
         }
     }
@@ -405,8 +447,8 @@ mod tests {
         loop {
             let subsidy = cbm.calc_block_subsidy(current);
             // Pre activation we expect the legacy calc (1bps)
-            if current < activation {
-                assert_eq!(cbm.legacy_calc_block_subsidy(current), subsidy);
+            if current < activation && cbm.bps().before() == 1 {
+                assert_eq!(cbm.legacy_calc_block_subsidy(current) / 1_000, subsidy);
             }
             if subsidy == 0 {
                 break;
@@ -439,8 +481,8 @@ mod tests {
             let cbm = create_manager(&params);
             let bps = params.bps_history().before();
 
-            let pre_deflationary_phase_base_subsidy = PRE_DEFLATIONARY_PHASE_BASE_SUBSIDY / bps;
-            let deflationary_phase_initial_subsidy = DEFLATIONARY_PHASE_INITIAL_SUBSIDY / bps;
+            let pre_deflationary_phase_base_subsidy = PRE_DEFLATIONARY_PHASE_BASE_SUBSIDY / bps / 1_000;
+            let deflationary_phase_initial_subsidy = DEFLATIONARY_PHASE_INITIAL_SUBSIDY / bps / 1_000;
             let blocks_per_halving = SECONDS_PER_HALVING * bps;
 
             struct Test {
@@ -482,12 +524,12 @@ mod tests {
                 Test {
                     name: "after 32 halvings",
                     daa_score: params.deflationary_phase_daa_score + 32 * blocks_per_halving,
-                    expected: (DEFLATIONARY_PHASE_INITIAL_SUBSIDY / 2_u64.pow(32)).div_ceil(bps),
+                    expected: (DEFLATIONARY_PHASE_INITIAL_SUBSIDY / 2_u64.pow(32)).div_ceil(bps) / 1_000,
                 },
                 Test {
                     name: "just before subsidy depleted",
                     daa_score: params.deflationary_phase_daa_score + 35 * blocks_per_halving,
-                    expected: 1,
+                    expected: 0,
                 },
                 Test {
                     name: "after subsidy depleted",
@@ -507,10 +549,167 @@ mod tests {
             for t in tests {
                 assert_eq!(cbm.calc_block_subsidy(t.daa_score), t.expected, "{} test '{}' failed", network_id, t.name);
                 if bps == 1 {
-                    assert_eq!(cbm.legacy_calc_block_subsidy(t.daa_score), t.expected, "{} test '{}' failed", network_id, t.name);
+                    assert_eq!(
+                        cbm.legacy_calc_block_subsidy(t.daa_score) / 1_000,
+                        t.expected,
+                        "{} test '{}' failed",
+                        network_id,
+                        t.name
+                    );
                 }
             }
         }
+    }
+
+    #[test]
+    fn slug_subsidy_scales_in_san_with_floor_rounding_and_daa_months() {
+        for network_id in NetworkId::iter() {
+            let params: Params = network_id.into();
+            let cbm = create_manager(&params);
+            let bps = params.bps_history().before();
+            let first_month_daa = params.deflationary_phase_daa_score + SECONDS_PER_MONTH * bps;
+
+            assert_eq!(cbm.calc_block_subsidy(0), 5_000_000);
+            assert_eq!(
+                cbm.calc_block_subsidy(first_month_daa - 1),
+                44_000_000_000u64.div_ceil(bps) / 1_000,
+                "{network_id}: subsidy remains in the initial DAA month"
+            );
+            assert_eq!(
+                cbm.calc_block_subsidy(first_month_daa),
+                SUBSIDY_BY_MONTH_TABLE[1].div_ceil(bps) / 1_000,
+                "{network_id}: monthly schedule advances at its DAA-score boundary"
+            );
+        }
+    }
+
+    #[test]
+    fn slug_ten_bps_schedule_emission_and_unused_supply_are_exact() {
+        let params = &MAINNET_PARAMS;
+        let cbm = create_manager(params);
+        let bps = params.bps_history().after();
+        let daas_per_month = SECONDS_PER_MONTH * bps;
+
+        let pre_deflationary_emission = params.deflationary_phase_daa_score.checked_mul(cbm.calc_block_subsidy(0)).unwrap();
+        let deflationary_emission = (0..SUBSIDY_BY_MONTH_TABLE_SIZE as u64)
+            .map(|month| {
+                let month_start_daa = params.deflationary_phase_daa_score + month * daas_per_month;
+                cbm.calc_block_subsidy(month_start_daa) * daas_per_month
+            })
+            .sum::<u64>();
+        let scheduled_emission = pre_deflationary_emission + deflationary_emission;
+
+        assert_eq!(pre_deflationary_emission, 775_980_000_000_000);
+        assert_eq!(deflationary_emission, 2_061_640_256_850_000);
+        assert_eq!(scheduled_emission, 2_837_620_256_850_000);
+        assert_eq!(MAX_SLUG_SUPPLY_SAN - scheduled_emission, 32_379_743_150_000);
+    }
+
+    #[test]
+    fn coinbase_caps_candidate_subsidy_to_remaining_supply() {
+        let cbm = create_manager(&MAINNET_PARAMS);
+        let miner_data = MinerData::new(ScriptPublicKey::new(0, scriptvec![1]), vec![]);
+        let ghostdag_data = GhostdagData::default();
+        let mergeset_rewards = BlockHashMap::default();
+        let mergeset_non_daa = BlockHashSet::default();
+
+        let tx = cbm
+            .expected_coinbase_transaction(
+                0,
+                MAX_SLUG_SUPPLY_SAN - 5,
+                miner_data.clone(),
+                &ghostdag_data,
+                &mergeset_rewards,
+                &mergeset_non_daa,
+            )
+            .unwrap();
+        let coinbase = cbm.deserialize_coinbase_payload(&tx.tx.payload).unwrap();
+        assert_eq!(coinbase.subsidy, 5);
+        assert_eq!(coinbase.cumulative_subsidy, MAX_SLUG_SUPPLY_SAN);
+
+        let exhausted = cbm
+            .expected_coinbase_transaction(
+                0,
+                MAX_SLUG_SUPPLY_SAN,
+                miner_data.clone(),
+                &ghostdag_data,
+                &mergeset_rewards,
+                &mergeset_non_daa,
+            )
+            .unwrap();
+        let exhausted_data = cbm.deserialize_coinbase_payload(&exhausted.tx.payload).unwrap();
+        assert_eq!(exhausted_data.subsidy, 0);
+        assert_eq!(exhausted_data.cumulative_subsidy, MAX_SLUG_SUPPLY_SAN);
+
+        let over_cap = cbm.expected_coinbase_transaction(
+            0,
+            MAX_SLUG_SUPPLY_SAN + 1,
+            miner_data,
+            &ghostdag_data,
+            &mergeset_rewards,
+            &mergeset_non_daa,
+        );
+        assert!(matches!(over_cap, Err(CoinbaseError::MergesetSubsidiesExceedSupplyCap)));
+    }
+
+    #[test]
+    fn coinbase_counts_new_blue_and_red_subsidies_once() {
+        let cbm = create_manager(&MAINNET_PARAMS);
+        let selected_parent = kaspa_hashes::Hash::from_bytes([1; 32]);
+        let blue = kaspa_hashes::Hash::from_bytes([2; 32]);
+        let red = kaspa_hashes::Hash::from_bytes([3; 32]);
+        let mut ghostdag_data = GhostdagData::default();
+        ghostdag_data.selected_parent = selected_parent;
+        ghostdag_data.mergeset_blues = std::sync::Arc::new(vec![selected_parent, blue]);
+        ghostdag_data.mergeset_reds = std::sync::Arc::new(vec![red]);
+
+        let script = ScriptPublicKey::new(0, scriptvec![1]);
+        let mut mergeset_rewards = BlockHashMap::default();
+        mergeset_rewards.insert(selected_parent, BlockRewardData::new(700, 0, script.clone()));
+        mergeset_rewards.insert(blue, BlockRewardData::new(100, 2, script.clone()));
+        mergeset_rewards.insert(red, BlockRewardData::new(200, 3, script.clone()));
+
+        let tx = cbm
+            .expected_coinbase_transaction(
+                0,
+                1_000,
+                MinerData::new(script, vec![]),
+                &ghostdag_data,
+                &mergeset_rewards,
+                &BlockHashSet::default(),
+            )
+            .unwrap();
+        let payload = cbm.deserialize_coinbase_payload(&tx.tx.payload).unwrap();
+        assert_eq!(payload.subsidy, 5_000_000);
+        assert_eq!(payload.cumulative_subsidy, 5_001_300);
+        assert_eq!(tx.tx.outputs.len(), 3);
+        assert!(tx.has_red_reward);
+    }
+
+    #[test]
+    fn coinbase_rejects_overflow_in_reward_and_supply_accounting() {
+        let cbm = create_manager(&MAINNET_PARAMS);
+        let parent = kaspa_hashes::Hash::from_bytes([1; 32]);
+        let blue = kaspa_hashes::Hash::from_bytes([2; 32]);
+        let mut ghostdag_data = GhostdagData::default();
+        ghostdag_data.selected_parent = parent;
+        ghostdag_data.mergeset_blues = std::sync::Arc::new(vec![parent, blue]);
+        let miner_data = MinerData::new(ScriptPublicKey::new(0, scriptvec![1]), vec![]);
+        let script = miner_data.script_public_key.clone();
+        let mut mergeset_rewards = BlockHashMap::default();
+        mergeset_rewards.insert(parent, BlockRewardData::new(0, 0, script.clone()));
+        mergeset_rewards.insert(blue, BlockRewardData::new(u64::MAX, 1, script.clone()));
+
+        assert!(matches!(
+            cbm.expected_coinbase_transaction(0, 0, miner_data.clone(), &ghostdag_data, &mergeset_rewards, &BlockHashSet::default(),),
+            Err(CoinbaseError::SubsidyAccountingOverflow)
+        ));
+
+        mergeset_rewards.insert(blue, BlockRewardData::new(u64::MAX, 0, script));
+        assert!(matches!(
+            cbm.expected_coinbase_transaction(0, 1, miner_data, &ghostdag_data, &mergeset_rewards, &BlockHashSet::default(),),
+            Err(CoinbaseError::MergesetSubsidiesExceedSupplyCap)
+        ));
     }
 
     #[test]
@@ -522,6 +721,7 @@ mod tests {
         let data = CoinbaseData {
             blue_score: 56,
             subsidy: 44000000000,
+            cumulative_subsidy: 44000000000,
             miner_data: MinerData {
                 script_public_key: ScriptPublicKey::new(0, ScriptVec::from_slice(&script_data)),
                 extra_data: &extra_data as &[u8],
@@ -534,8 +734,7 @@ mod tests {
         assert_eq!(data, deserialized_data);
 
         // Test an actual mainnet payload
-        let payload_hex =
-            "b612c90100000000041a763e07000000000022202b32443ff740012157716d81216d09aebc39e5493c93a7181d92cb756c02c560ac302e31322e382f";
+        let payload_hex = "b612c90100000000041a763e07000000041a763e07000000000022202b32443ff740012157716d81216d09aebc39e5493c93a7181d92cb756c02c560ac302e31322e382f";
         let mut payload = vec![0u8; payload_hex.len() / 2];
         faster_hex::hex_decode(payload_hex.as_bytes(), &mut payload).unwrap();
         let deserialized_data = cbm.deserialize_coinbase_payload(&payload).unwrap();
@@ -543,6 +742,7 @@ mod tests {
         let expected_data = CoinbaseData {
             blue_score: 29954742,
             subsidy: 31112698372,
+            cumulative_subsidy: 31_112_698_372,
             miner_data: MinerData {
                 script_public_key: ScriptPublicKey::new(
                     0,
@@ -558,6 +758,27 @@ mod tests {
     }
 
     #[test]
+    fn coinbase_payload_rejects_invalid_cumulative_subsidy() {
+        let cbm = create_manager(&MAINNET_PARAMS);
+        let miner_data = MinerData::new(ScriptPublicKey::new(0, scriptvec![1]), vec![]);
+
+        let below_block_subsidy = CoinbaseData { blue_score: 0, subsidy: 2, cumulative_subsidy: 1, miner_data: miner_data.clone() };
+        assert!(matches!(
+            cbm.serialize_coinbase_payload(&below_block_subsidy),
+            Err(CoinbaseError::CumulativeSubsidyBelowBlockSubsidy(1, 2))
+        ));
+
+        let above_cap =
+            CoinbaseData { blue_score: 0, subsidy: 1, cumulative_subsidy: MAX_SLUG_SUPPLY_SAN + 1, miner_data: miner_data.clone() };
+        assert!(matches!(cbm.serialize_coinbase_payload(&above_cap), Err(CoinbaseError::CumulativeSubsidyAboveSupplyCap(_))));
+
+        let valid = CoinbaseData { blue_score: 0, subsidy: 1, cumulative_subsidy: 1, miner_data };
+        let mut payload = cbm.serialize_coinbase_payload(&valid).unwrap();
+        payload[16..24].copy_from_slice(&(MAX_SLUG_SUPPLY_SAN + 1).to_le_bytes());
+        assert!(matches!(cbm.deserialize_coinbase_payload(&payload), Err(CoinbaseError::CumulativeSubsidyAboveSupplyCap(_))));
+    }
+
+    #[test]
     fn modify_payload_test() {
         let cbm = create_manager(&MAINNET_PARAMS);
 
@@ -566,6 +787,7 @@ mod tests {
         let data = CoinbaseData {
             blue_score: 56345,
             subsidy: 44000000000,
+            cumulative_subsidy: 44000000000,
             miner_data: MinerData {
                 script_public_key: ScriptPublicKey::new(0, ScriptVec::from_slice(&script_data)),
                 extra_data: &extra_data,
@@ -575,6 +797,7 @@ mod tests {
         let data2 = CoinbaseData {
             blue_score: data.blue_score,
             subsidy: data.subsidy,
+            cumulative_subsidy: data.cumulative_subsidy,
             miner_data: MinerData {
                 // Modify only miner data
                 script_public_key: ScriptPublicKey::new(0, ScriptVec::from_slice(&[33u8, 255, 33])),
@@ -598,7 +821,7 @@ mod tests {
         let mergeset_rewards = Default::default();
         let mergeset_non_daa = Default::default();
 
-        let tx = cbm.expected_coinbase_transaction(100, miner_data, &ghostdag_data, &mergeset_rewards, &mergeset_non_daa).unwrap();
+        let tx = cbm.expected_coinbase_transaction(100, 0, miner_data, &ghostdag_data, &mergeset_rewards, &mergeset_non_daa).unwrap();
 
         assert_eq!(tx.tx.version, constants::TX_VERSION_TOCCATA);
     }

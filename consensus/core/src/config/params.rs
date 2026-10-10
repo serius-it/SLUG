@@ -242,7 +242,7 @@ pub struct OverrideParams {
     pub block_mass_limits: Option<BlockMassLimits>,
     pub block_lane_limits: Option<BlockLaneLimits>,
 
-    /// The parameter for scaling inverse KAS value to mass units (KIP-0009)
+    /// The parameter for scaling inverse SLG value to mass units (KIP-0009)
     pub storage_mass_parameter: Option<u64>,
 
     /// DAA score after which the pre-deflationary period switches to the deflationary period
@@ -335,7 +335,7 @@ pub struct Params {
     pub block_mass_limits: BlockMassLimits,
     pub block_lane_limits: BlockLaneLimits,
 
-    /// The parameter for scaling inverse KAS value to mass units (KIP-0009)
+    /// The parameter for scaling inverse SLG value to mass units (KIP-0009)
     pub storage_mass_parameter: u64,
 
     /// DAA score after which the pre-deflationary period switches to the deflationary period
@@ -569,7 +569,7 @@ impl From<NetworkId> for Params {
         match value.network_type {
             NetworkType::Mainnet => MAINNET_PARAMS,
             NetworkType::Testnet => match value.suffix {
-                Some(10) => TESTNET_PARAMS,
+                Some(1) => TESTNET_PARAMS,
                 Some(x) => panic!("Testnet suffix {} is not supported", x),
                 None => panic!("Testnet suffix not provided"),
             },
@@ -580,26 +580,7 @@ impl From<NetworkId> for Params {
 }
 
 pub const MAINNET_PARAMS: Params = Params {
-    dns_seeders: &[
-        // This DNS seeder is run by Denis Mashkevich
-        "mainnet-dnsseed-1.kaspanet.org",
-        // This DNS seeder is run by Denis Mashkevich
-        "mainnet-dnsseed-2.kaspanet.org",
-        // This DNS seeder is run by Georges Künzli
-        "seeder1.kaspad.net",
-        // This DNS seeder is run by Georges Künzli
-        "seeder2.kaspad.net",
-        // This DNS seeder is run by Georges Künzli
-        "seeder3.kaspad.net",
-        // This DNS seeder is run by Georges Künzli
-        "seeder4.kaspad.net",
-        // This DNS seeder is run by Tim
-        "kaspadns.kaspacalc.net",
-        // This DNS seeder is run by supertypo
-        "n-mainnet.kaspa.ws",
-        // This DNS seeder is run by -gerri-
-        "dnsseeder-kaspa-mainnet.x-con.at",
-    ],
+    dns_seeders: &[],
     net: NetworkId::new(NetworkType::Mainnet),
     genesis: GENESIS,
     timestamp_deviation_tolerance: TIMESTAMP_DEVIATION_TOLERANCE,
@@ -609,7 +590,7 @@ pub const MAINNET_PARAMS: Params = Params {
     difficulty_window_size: DIFFICULTY_SAMPLED_WINDOW_SIZE as usize,
     min_difficulty_window_size: MIN_DIFFICULTY_WINDOW_SIZE,
     coinbase_payload_script_public_key_max_len: 150,
-    max_coinbase_payload_len: 204,
+    max_coinbase_payload_len: 212,
 
     // Limit the cost of calculating compute/transient/storage masses
     max_tx_inputs: 1000,
@@ -628,36 +609,21 @@ pub const MAINNET_PARAMS: Params = Params {
 
     storage_mass_parameter: STORAGE_MASS_PARAMETER,
 
-    // deflationary_phase_daa_score is the DAA score after which the pre-deflationary period
-    // switches to the deflationary period. This number is calculated as follows:
-    // We define a year as 365.25 days
-    // Half a year in seconds = 365.25 / 2 * 24 * 60 * 60 = 15778800
-    // The network was down for three days shortly after launch
-    // Three days in seconds = 3 * 24 * 60 * 60 = 259200
-    deflationary_phase_daa_score: 15778800 - 259200,
-    pre_deflationary_phase_base_subsidy: 50000000000,
+    deflationary_phase_daa_score: TenBps::deflationary_phase_daa_score(),
+    pre_deflationary_phase_base_subsidy: TenBps::pre_deflationary_phase_base_subsidy(),
     skip_proof_of_work: false,
     max_block_level: 225,
     pruning_proof_m: 1000,
 
     blockrate: BlockrateParams::new::<10>(),
 
-    pre_crescendo_target_time_per_block: 1000,
-
-    // Roughly 2025-05-05 1500 UTC
-    crescendo_activation: ForkActivation::new(110_165_000),
+    pre_crescendo_target_time_per_block: TenBps::target_time_per_block(),
+    crescendo_activation: ForkActivation::always(),
 };
 
 pub const TESTNET_PARAMS: Params = Params {
-    dns_seeders: &[
-        // This DNS seeder is run by Tiram
-        "seeder1-tn.kaspad.net",
-        // This DNS seeder is run by -gerri-
-        "dnsseeder-kaspa-testnet.x-con.at",
-        // This DNS seeder is run by supertypo
-        "n-testnet-10.kaspa.ws",
-    ],
-    net: NetworkId::with_suffix(NetworkType::Testnet, 10),
+    dns_seeders: &[],
+    net: NetworkId::with_suffix(NetworkType::Testnet, 1),
     genesis: TESTNET_GENESIS,
     timestamp_deviation_tolerance: TIMESTAMP_DEVIATION_TOLERANCE,
     max_difficulty_target: MAX_DIFFICULTY_TARGET,
@@ -666,7 +632,7 @@ pub const TESTNET_PARAMS: Params = Params {
     difficulty_window_size: DIFFICULTY_SAMPLED_WINDOW_SIZE as usize,
     min_difficulty_window_size: MIN_DIFFICULTY_WINDOW_SIZE,
     coinbase_payload_script_public_key_max_len: 150,
-    max_coinbase_payload_len: 204,
+    max_coinbase_payload_len: 212,
 
     // Limit the cost of calculating compute/transient/storage masses
     max_tx_inputs: 1000,
@@ -684,24 +650,16 @@ pub const TESTNET_PARAMS: Params = Params {
     block_lane_limits: BlockLaneLimits { lanes_per_block: DEFAULT_LANES_PER_BLOCK_LIMIT, gas_per_lane: DEFAULT_GAS_PER_LANE_LIMIT },
 
     storage_mass_parameter: STORAGE_MASS_PARAMETER,
-    // deflationary_phase_daa_score is the DAA score after which the pre-deflationary period
-    // switches to the deflationary period. This number is calculated as follows:
-    // We define a year as 365.25 days
-    // Half a year in seconds = 365.25 / 2 * 24 * 60 * 60 = 15778800
-    // The network was down for three days shortly after launch
-    // Three days in seconds = 3 * 24 * 60 * 60 = 259200
-    deflationary_phase_daa_score: 15778800 - 259200,
-    pre_deflationary_phase_base_subsidy: 50000000000,
+    deflationary_phase_daa_score: TenBps::deflationary_phase_daa_score(),
+    pre_deflationary_phase_base_subsidy: TenBps::pre_deflationary_phase_base_subsidy(),
     skip_proof_of_work: false,
     max_block_level: 250,
     pruning_proof_m: 1000,
 
     blockrate: BlockrateParams::new::<10>(),
 
-    pre_crescendo_target_time_per_block: 1000,
-
-    // 18:30 UTC, March 6, 2025
-    crescendo_activation: ForkActivation::new(88_657_000),
+    pre_crescendo_target_time_per_block: TenBps::target_time_per_block(),
+    crescendo_activation: ForkActivation::always(),
 };
 
 pub const SIMNET_PARAMS: Params = Params {
@@ -718,7 +676,7 @@ pub const SIMNET_PARAMS: Params = Params {
     deflationary_phase_daa_score: TenBps::deflationary_phase_daa_score(),
     pre_deflationary_phase_base_subsidy: TenBps::pre_deflationary_phase_base_subsidy(),
     coinbase_payload_script_public_key_max_len: 150,
-    max_coinbase_payload_len: 204,
+    max_coinbase_payload_len: 212,
 
     max_tx_inputs: 1000,
     max_tx_outputs: 1000,
@@ -757,7 +715,7 @@ pub const DEVNET_PARAMS: Params = Params {
     difficulty_window_size: DIFFICULTY_SAMPLED_WINDOW_SIZE as usize,
     min_difficulty_window_size: MIN_DIFFICULTY_WINDOW_SIZE,
     coinbase_payload_script_public_key_max_len: 150,
-    max_coinbase_payload_len: 204,
+    max_coinbase_payload_len: 212,
 
     max_tx_inputs: 1000,
     max_tx_outputs: 1000,
@@ -774,7 +732,7 @@ pub const DEVNET_PARAMS: Params = Params {
 
     storage_mass_parameter: STORAGE_MASS_PARAMETER,
 
-    deflationary_phase_daa_score: 0,
+    deflationary_phase_daa_score: TenBps::deflationary_phase_daa_score(),
     pre_deflationary_phase_base_subsidy: TenBps::pre_deflationary_phase_base_subsidy(),
     skip_proof_of_work: false,
     max_block_level: 250,
@@ -790,6 +748,30 @@ pub const DEVNET_PARAMS: Params = Params {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn slug_networks_have_isolated_ids_and_no_dns_seeders() {
+        assert_eq!(MAINNET_PARAMS.net.to_prefixed(), "slug-mainnet");
+        assert_eq!(TESTNET_PARAMS.net.to_prefixed(), "slug-testnet-1");
+        assert_eq!(DEVNET_PARAMS.net.to_prefixed(), "slug-devnet");
+        assert_eq!(SIMNET_PARAMS.net.to_prefixed(), "slug-simnet");
+        assert!(MAINNET_PARAMS.dns_seeders.is_empty());
+        assert!(TESTNET_PARAMS.dns_seeders.is_empty());
+        assert!(DEVNET_PARAMS.dns_seeders.is_empty());
+        assert!(SIMNET_PARAMS.dns_seeders.is_empty());
+        assert_eq!(MAINNET_PARAMS.max_difficulty_target, MAX_DIFFICULTY_TARGET);
+        assert_eq!(MAINNET_PARAMS.max_difficulty_target_f64, MAX_DIFFICULTY_TARGET_AS_F64);
+        assert_eq!(MAINNET_PARAMS.max_difficulty_target.as_f64(), MAINNET_PARAMS.max_difficulty_target_f64);
+        assert_eq!(MAINNET_PARAMS.genesis.bits, 0x1f0694e4);
+        assert_eq!(Params::from(NetworkId::with_suffix(NetworkType::Testnet, 1)).net, NetworkId::with_suffix(NetworkType::Testnet, 1));
+        for params in [MAINNET_PARAMS, TESTNET_PARAMS, DEVNET_PARAMS, SIMNET_PARAMS] {
+            assert_eq!(params.target_time_per_block(), 100);
+            assert_eq!(params.bps(), 10);
+            assert_eq!(params.bps_history().before(), 10);
+            assert_eq!(params.bps_history().after(), 10);
+            assert!(params.bps_history().activation().is_active(0));
+        }
+    }
 
     #[test]
     fn override_params_rejects_unknown_top_level_fields() {

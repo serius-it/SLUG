@@ -5,7 +5,7 @@ use super::result::*;
 use crate::bundle::Bundle as Inner;
 use crate::pskt::Inner as PSKTInner;
 use crate::wasm::pskt::*;
-use crate::wasm::utils::sompi_to_kaspa_string_with_suffix;
+use crate::wasm::utils::san_to_slg_string_with_suffix;
 use kaspa_consensus_core::network::{NetworkId, NetworkIdT};
 use wasm_bindgen::prelude::*;
 use workflow_wasm::convert::TryCastFromJs;
@@ -36,7 +36,7 @@ impl PSKB {
     #[wasm_bindgen(js_name = "displayFormat")]
     pub fn display_format(&self, network_id: &NetworkIdT) -> Result<String> {
         let network_id = NetworkId::try_cast_from(network_id).map_err(|err| Error::Custom(err.to_string()))?.into_owned();
-        Ok(self.0.display_format(network_id, sompi_to_kaspa_string_with_suffix))
+        Ok(self.0.display_format(network_id, san_to_slg_string_with_suffix))
     }
 
     #[wasm_bindgen]

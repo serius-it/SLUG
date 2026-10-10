@@ -1,7 +1,7 @@
 use super::{VirtualStateProcessor, bounds::SeqCommitBounds};
 use crate::{
     errors::{
-        BlockProcessResult,
+        BlockProcessResult, RuleError,
         RuleError::{
             BadAcceptedIDMerkleRoot, BadCoinbaseTransaction, BadUTXOCommitment, InvalidTransactionsInUtxoContext,
             WrongHeaderPruningPoint, WrongSelectedParentOrder,
@@ -108,7 +108,7 @@ impl VirtualStateProcessor {
         ctx: &mut UtxoProcessingContext,
         selected_parent_utxo_view: &V,
         pov_daa_score: u64,
-    ) {
+    ) -> Result<(), RuleError> {
         let selected_parent_transactions = self.block_transactions_store.get(ctx.selected_parent()).unwrap();
         let validated_coinbase = ValidatedTransaction::new_coinbase(&selected_parent_transactions[0]);
 
@@ -153,7 +153,7 @@ impl VirtualStateProcessor {
             let mut block_fee = 0u64;
             for (validated_tx, _) in validated_transactions.iter() {
                 ctx.mergeset_diff.add_transaction(validated_tx, pov_daa_score).unwrap();
-                block_fee += validated_tx.calculated_fee;
+                block_fee = block_fee.checked_add(validated_tx.calculated_fee).ok_or(RuleError::CoinbaseFeeOverflow)?;
             }
 
             ctx.mergeset_acceptance_data.push(MergesetBlockAcceptanceData {
@@ -170,12 +170,15 @@ impl VirtualStateProcessor {
                     .collect(),
             });
 
-            let coinbase_data = self.coinbase_manager.deserialize_coinbase_payload(&txs[0].payload).unwrap();
+            let coinbase_data =
+                self.coinbase_manager.deserialize_coinbase_payload(&txs[0].payload).map_err(RuleError::BadCoinbasePayload)?;
             ctx.mergeset_rewards.insert(
                 merged_block,
                 BlockRewardData::new(coinbase_data.subsidy, block_fee, coinbase_data.miner_data.script_public_key),
             );
         }
+
+        Ok(())
     }
 
     /// Verify that the current block fully respects its own UTXO view. We define a block as
@@ -283,11 +286,25 @@ impl VirtualStateProcessor {
         mergeset_non_daa: &BlockHashSet,
     ) -> BlockProcessResult<()> {
         // Extract only miner data from the provided coinbase
-        let miner_data = self.coinbase_manager.deserialize_coinbase_payload(&coinbase.payload).unwrap().miner_data;
+        let miner_data =
+            self.coinbase_manager.deserialize_coinbase_payload(&coinbase.payload).map_err(RuleError::BadCoinbasePayload)?.miner_data;
+        let selected_parent_coinbase = self.block_transactions_store.get(ghostdag_data.selected_parent).unwrap();
+        let selected_parent_cumulative_subsidy = self
+            .coinbase_manager
+            .deserialize_coinbase_payload(&selected_parent_coinbase[0].payload)
+            .map_err(RuleError::BadCoinbasePayload)?
+            .cumulative_subsidy;
         let expected_coinbase = self
             .coinbase_manager
-            .expected_coinbase_transaction(daa_score, miner_data, ghostdag_data, mergeset_rewards, mergeset_non_daa)
-            .unwrap()
+            .expected_coinbase_transaction(
+                daa_score,
+                selected_parent_cumulative_subsidy,
+                miner_data,
+                ghostdag_data,
+                mergeset_rewards,
+                mergeset_non_daa,
+            )
+            .map_err(RuleError::BadCoinbasePayload)?
             .tx;
         if hashing::tx::hash(coinbase) != hashing::tx::hash(&expected_coinbase) { Err(BadCoinbaseTransaction) } else { Ok(()) }
     }

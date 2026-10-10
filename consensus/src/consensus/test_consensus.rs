@@ -9,7 +9,7 @@ use kaspa_consensus_core::{
 use kaspa_consensus_notify::{notification::Notification, root::ConsensusNotificationRoot};
 use kaspa_consensusmanager::{ConsensusFactory, ConsensusInstance, DynConsensusCtl};
 use kaspa_core::{core::Core, service::Service};
-use kaspa_database::utils::DbLifetime;
+use kaspa_database::{prelude::StoreResultExt, utils::DbLifetime};
 use kaspa_hashes::Hash;
 use kaspa_notify::subscription::context::SubscriptionContext;
 use kaspa_smt::proof::OwnedSmtProof;
@@ -27,7 +27,8 @@ use crate::{
     model::{
         services::reachability::MTReachabilityService,
         stores::{
-            DB, ghostdag::DbGhostdagStore, headers::HeaderStoreReader, reachability::DbReachabilityStore, virtual_state::VirtualStores,
+            DB, block_transactions::BlockTransactionsStoreReader, ghostdag::DbGhostdagStore, headers::HeaderStoreReader,
+            reachability::DbReachabilityStore, virtual_state::VirtualStores,
         },
     },
     params::Params,
@@ -205,8 +206,21 @@ impl TestConsensus {
         mut txs: Vec<Transaction>,
     ) -> MutableBlock {
         let mut header = self.build_header_with_parents(hash, parents);
+        let selected_parent_cumulative_subsidy =
+            match self.block_transactions_store.get(header.direct_parents()[0]).optional().unwrap() {
+                Some(selected_parent_coinbase) => {
+                    self.services
+                        .coinbase_manager
+                        .deserialize_coinbase_payload(&selected_parent_coinbase[0].payload)
+                        .unwrap()
+                        .cumulative_subsidy
+                }
+                None => 0,
+            };
+        let subsidy = self.services.coinbase_manager.calc_block_subsidy(header.daa_score);
         let cb_payload: Vec<u8> = header.blue_score.to_le_bytes().iter().copied() // Blue score
-            .chain(self.consensus.services.coinbase_manager.calc_block_subsidy(header.daa_score).to_le_bytes().iter().copied()) // Subsidy
+            .chain(subsidy.to_le_bytes().iter().copied()) // Subsidy
+            .chain(selected_parent_cumulative_subsidy.checked_add(subsidy).unwrap().to_le_bytes().iter().copied()) // Cumulative subsidy
             .chain((0_u16).to_le_bytes().iter().copied()) // Script public key version
             .chain((0_u8).to_le_bytes().iter().copied()) // Script public key length
             .collect();

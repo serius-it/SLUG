@@ -309,7 +309,7 @@ impl KaspaCli {
                                     this.term().refresh_prompt();
                                 },
                                 Events::UtxoIndexNotEnabled { .. } => {
-                                    tprintln!(this, "Error: Kaspa node UTXO index is not enabled...")
+                                    tprintln!(this, "Error: SLUG node UTXO index is not enabled...")
                                 },
                                 Events::SyncState { sync_state } => {
 
@@ -331,16 +331,16 @@ impl KaspaCli {
                                     ..
                                 } => {
 
-                                    tprintln!(this, "Connected to Kaspa node version {server_version} at {}", url.unwrap_or("N/A".to_string()));
+                                    tprintln!(this, "Connected to SLUG node version {server_version} at {}", url.unwrap_or("N/A".to_string()));
 
                                     let is_open = this.wallet.is_open();
 
                                     if !is_synced {
                                         if is_open {
-                                            terrorln!(this, "Unable to update the wallet state - Kaspa node is currently syncing with the network...");
+                                            terrorln!(this, "Unable to update the wallet state - SLUG node is currently syncing with the network...");
 
                                         } else {
-                                            terrorln!(this, "Kaspa node is currently syncing with the network, please wait for the sync to complete...");
+                                            terrorln!(this, "SLUG node is currently syncing with the network, please wait for the sync to complete...");
                                         }
                                     }
 

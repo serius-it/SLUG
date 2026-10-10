@@ -81,9 +81,9 @@ fn get_home_dir() -> PathBuf {
 /// Get the default application directory.
 pub fn get_app_dir() -> PathBuf {
     #[cfg(target_os = "windows")]
-    return get_home_dir().join("rusty-kaspa");
+    return get_home_dir().join("slug");
     #[cfg(not(target_os = "windows"))]
-    return get_home_dir().join(".rusty-kaspa");
+    return get_home_dir().join(".slug");
 }
 
 pub fn validate_args(args: &Args) -> ConfigResult<()> {

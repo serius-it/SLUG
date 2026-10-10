@@ -388,7 +388,7 @@ impl WalletApi for super::Wallet {
     }
 
     async fn accounts_send_call(self: Arc<Self>, request: AccountsSendRequest) -> Result<AccountsSendResponse> {
-        let AccountsSendRequest { account_id, wallet_secret, payment_secret, destination, fee_rate, priority_fee_sompi, payload } =
+        let AccountsSendRequest { account_id, wallet_secret, payment_secret, destination, fee_rate, priority_fee_san, payload } =
             request;
 
         let guard = self.guard();
@@ -397,7 +397,7 @@ impl WalletApi for super::Wallet {
 
         let abortable = Abortable::new();
         let (generator_summary, transaction_ids) =
-            account.send(destination, fee_rate, priority_fee_sompi, payload, wallet_secret, payment_secret, &abortable, None).await?;
+            account.send(destination, fee_rate, priority_fee_san, payload, wallet_secret, payment_secret, &abortable, None).await?;
 
         Ok(AccountsSendResponse { generator_summary, transaction_ids })
     }
@@ -429,11 +429,11 @@ impl WalletApi for super::Wallet {
     }
 
     async fn accounts_get_utxos_call(self: Arc<Self>, request: AccountsGetUtxosRequest) -> Result<AccountsGetUtxosResponse> {
-        let AccountsGetUtxosRequest { account_id, addresses, min_amount_sompi } = request;
+        let AccountsGetUtxosRequest { account_id, addresses, min_amount_san } = request;
         let guard = self.guard();
         let guard = guard.lock().await;
         let account = self.get_account_by_id(&account_id, &guard).await?.ok_or(Error::AccountNotFound(account_id))?;
-        let utxos = account.get_utxos(addresses, min_amount_sompi).await?;
+        let utxos = account.get_utxos(addresses, min_amount_san).await?;
         Ok(AccountsGetUtxosResponse { utxos: utxos.into_iter().map(|entry| entry.into()).collect::<Vec<UtxoEntryWrapper>>() })
     }
 
@@ -456,8 +456,8 @@ impl WalletApi for super::Wallet {
             wallet_secret,
             payment_secret,
             fee_rate,
-            priority_fee_sompi,
-            transfer_amount_sompi,
+            priority_fee_san,
+            transfer_amount_san,
         } = request;
 
         let guard = self.guard();
@@ -470,9 +470,9 @@ impl WalletApi for super::Wallet {
         let (generator_summary, transaction_ids) = source_account
             .transfer(
                 destination_account_id,
-                transfer_amount_sompi,
+                transfer_amount_san,
                 fee_rate,
-                priority_fee_sompi.unwrap_or(Fees::SenderPays(0)),
+                priority_fee_san.unwrap_or(Fees::SenderPays(0)),
                 wallet_secret,
                 payment_secret,
                 &abortable,
@@ -496,7 +496,7 @@ impl WalletApi for super::Wallet {
             wallet_secret,
             payment_secret,
             fee_rate,
-            reveal_fee_sompi,
+            reveal_fee_san,
             payload,
         } = request;
 
@@ -516,7 +516,7 @@ impl WalletApi for super::Wallet {
                 wallet_secret,
                 payment_secret,
                 fee_rate,
-                reveal_fee_sompi,
+                reveal_fee_san,
                 payload,
                 &abortable,
             )
@@ -535,11 +535,11 @@ impl WalletApi for super::Wallet {
             address_type,
             address_index,
             script_sig,
-            commit_amount_sompi,
+            commit_amount_san,
             wallet_secret,
             payment_secret,
             fee_rate,
-            reveal_fee_sompi,
+            reveal_fee_san,
             payload,
         } = request;
 
@@ -574,9 +574,9 @@ impl WalletApi for super::Wallet {
                 script_sig,
                 wallet_secret,
                 payment_secret,
-                commit_amount_sompi,
+                commit_amount_san,
                 fee_rate,
-                reveal_fee_sompi,
+                reveal_fee_san,
                 payload,
                 &abortable,
             )
@@ -587,7 +587,7 @@ impl WalletApi for super::Wallet {
     }
 
     async fn accounts_estimate_call(self: Arc<Self>, request: AccountsEstimateRequest) -> Result<AccountsEstimateResponse> {
-        let AccountsEstimateRequest { account_id, destination, fee_rate, priority_fee_sompi, payload } = request;
+        let AccountsEstimateRequest { account_id, destination, fee_rate, priority_fee_san, payload } = request;
 
         let guard = self.guard();
         let guard = guard.lock().await;
@@ -606,7 +606,7 @@ impl WalletApi for super::Wallet {
 
         let abortable = Abortable::new();
         self.inner.estimation_abortables.lock().unwrap().insert(account_id, abortable.clone());
-        let result = account.estimate(destination, fee_rate, priority_fee_sompi, payload, &abortable).await;
+        let result = account.estimate(destination, fee_rate, priority_fee_san, payload, &abortable).await;
         self.inner.estimation_abortables.lock().unwrap().remove(&account_id);
 
         Ok(AccountsEstimateResponse { generator_summary: result? })

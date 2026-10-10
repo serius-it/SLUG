@@ -10,10 +10,9 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 (async () => {
   const rpc = new RpcClient({
-    url: "127.0.0.1",
+    url: "ws://127.0.0.1:19112",
     encoding: Encoding.Borsh,
-    // resolver: new Resolver(),
-    networkId: "mainnet",
+    networkId: "slug-mainnet",
   });
   console.log(`Resolving RPC endpoint...`);
   await rpc.connect();

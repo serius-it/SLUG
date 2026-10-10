@@ -3,11 +3,8 @@ globalThis.WebSocket = require('websocket').w3cwebsocket; // W3C WebSocket modul
 
 const kaspa = require('../../../../nodejs/kaspa');
 const { parseArgs } = require("../utils");
-const {
-    Resolver,
-    Encoding,
-    RpcClient,
-} = kaspa;
+const { RpcClient } = kaspa;
+const { rpcUrl } = require("../utils");
 
 kaspa.initConsolePanicHook();
 
@@ -18,19 +15,12 @@ const {
 
 (async () => {
 
-    const resolver = new Resolver();
-    // console.log(resolver);
-    // process.exit(0);
-    // let url = await resolver.getUrl(Encoding.Borsh, networkId);
-    // console.log(url);
     const rpc = new RpcClient({
-        // url,
-        // encoding,
-        resolver,
+        url: rpcUrl(networkId),
+        encoding,
         networkId
     });
-
-    // const rpc = await resolver.connect(networkId);
+    console.log("Using the explicitly configured local SLUG RPC endpoint.");
     await rpc.connect();
     console.log("Connected to", rpc.url);
     console.log("RPC", rpc);

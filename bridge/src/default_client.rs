@@ -10,9 +10,6 @@ use std::sync::{Arc, LazyLock};
 /// Matches: BzMiner, IceRiverMiner (from client_handler.go bigJobRegex)
 static BIG_JOB_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r".*(BzMiner|IceRiverMiner).*").unwrap());
 
-/// Regex for matching wallet addresses
-static WALLET_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"kaspa(test|dev)?:([a-z0-9]{61}|[a-z0-9]{63})").unwrap());
-
 /// Default logger configuration
 pub fn default_logger() {
     // Logger is configured via tracing-subscriber in main
@@ -324,22 +321,36 @@ fn process_canxium_address(address: &str) -> String {
 
 /// Clean and validate wallet address
 fn clean_wallet(input: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    // Try to decode as Kaspa address (supports kaspa:, kaspatest:, kaspadev:)
-    if Address::try_from(input).is_ok() {
-        return Ok(input.to_string());
+    let address = input.split('.').next().unwrap_or(input);
+    let normalized = match address.split_once(':') {
+        Some((prefix, _)) if matches!(prefix, "slug" | "slugtest" | "slugdev" | "slugsim") => address.to_string(),
+        Some(_) => return Err("wallet address uses an unsupported network prefix".into()),
+        None => format!("slug:{address}"),
+    };
+
+    Address::try_from(normalized.as_str()).map_err(|error| format!("invalid SLUG wallet address: {error}"))?;
+    Ok(normalized)
+}
+
+#[cfg(test)]
+mod wallet_tests {
+    use super::clean_wallet;
+
+    const MAINNET_ADDRESS: &str = "slug:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthel";
+    const MAINNET_PAYLOAD: &str = "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthel";
+
+    #[test]
+    fn clean_wallet_requires_valid_slug_address() {
+        assert_eq!(clean_wallet(MAINNET_ADDRESS).unwrap(), MAINNET_ADDRESS);
+        assert_eq!(clean_wallet(MAINNET_PAYLOAD).unwrap(), MAINNET_ADDRESS);
+        assert!(clean_wallet("kaspa:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e").is_err());
+        assert!(clean_wallet("slug:invalid").is_err());
     }
 
-    // Try with kaspa: prefix if no recognized prefix
-    if !input.starts_with("kaspa:") && !input.starts_with("kaspatest:") && !input.starts_with("kaspadev:") {
-        return clean_wallet(&format!("kaspa:{}", input));
+    #[test]
+    fn clean_wallet_ignores_worker_suffix() {
+        assert_eq!(clean_wallet(&format!("{MAINNET_ADDRESS}.worker")).unwrap(), MAINNET_ADDRESS);
     }
-
-    // Try regex match
-    if let Some(captures) = WALLET_REGEX.find(input) {
-        return Ok(captures.as_str().to_string());
-    }
-
-    Err("unable to coerce wallet to valid kaspa address".into())
 }
 
 /// Send extranonce to client

@@ -144,14 +144,14 @@ impl KaspaApi {
         coinbase_tag_suffix: Option<String>,
         mut shutdown_rx: watch::Receiver<bool>,
     ) -> Result<Arc<Self>> {
-        info!("Connecting to Kaspa node at {}", address);
+        info!("Connecting to SLUG node at {}", address);
 
         // GrpcClient requires explicit "grpc://" prefix for connection
         // Always add it if not present (avoids unnecessary connection failure)
         let grpc_address = if address.starts_with("grpc://") { address.clone() } else { format!("grpc://{}", address) };
 
         // Log connection attempt (detailed logs moved to debug)
-        debug!("{} {}", LogColors::api("[API]"), LogColors::label("Establishing RPC connection to Kaspa node:"));
+        debug!("{} {}", LogColors::api("[API]"), LogColors::label("Establishing RPC connection to SLUG node:"));
         debug!("{} {} {}", LogColors::api("[API]"), LogColors::label("  - Address:"), &grpc_address);
         debug!("{} {} {}", LogColors::api("[API]"), LogColors::label("  - Protocol:"), "gRPC (via RPC client wrapper)");
 
@@ -753,7 +753,7 @@ impl KaspaApi {
                     // If the error contains "Odd number of digits", provide more context
                     if error_str.contains("Odd number of digits") {
                         return Err(anyhow::anyhow!(
-                            "Failed to convert RPC block to Block after {} attempts: {} - This usually indicates a malformed hash field in the block template from the Kaspa node. The block may have a hash with an odd-length hex string.",
+                            "Failed to convert RPC block to Block after {} attempts: {} - This usually indicates a malformed hash field in the block template from the SLUG node. The block may have a hash with an odd-length hex string.",
                             max_retries,
                             error_str
                         ));

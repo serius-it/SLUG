@@ -15,6 +15,18 @@ pub enum CoinbaseError {
         "coinbase payload length is {0} bytes but it needs to be at least {1} bytes long in order to accommodate the script public key"
     )]
     PayloadCantContainScriptPublicKey(usize, usize),
+
+    #[error("coinbase subsidy accounting arithmetic overflow")]
+    SubsidyAccountingOverflow,
+
+    #[error("coinbase mergeset subsidies exceed the remaining SLUG supply")]
+    MergesetSubsidiesExceedSupplyCap,
+
+    #[error("coinbase cumulative subsidy {0} exceeds the SLUG supply cap")]
+    CumulativeSubsidyAboveSupplyCap(u64),
+
+    #[error("coinbase cumulative subsidy {0} is less than its block subsidy {1}")]
+    CumulativeSubsidyBelowBlockSubsidy(u64, u64),
 }
 
 pub type CoinbaseResult<T> = std::result::Result<T, CoinbaseError>;

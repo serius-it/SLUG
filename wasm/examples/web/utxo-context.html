@@ -3,10 +3,10 @@
     <head>
         <link rel="stylesheet" href="./resources/style.css">
         <script type="module">
-            import { log, stringify, currentNetwork } from './resources/utils.js';
+            import { log, stringify, currentNetwork, rpcUrl } from './resources/utils.js';
 
             import * as kaspa from '../../web/kaspa-core/kaspa.js';
-            let { Resolver, RpcClient, Encoding, UtxoProcessor, UtxoContext } = kaspa;
+            let { RpcClient, UtxoProcessor, UtxoContext } = kaspa;
 
             window.monitor = {};
 
@@ -14,13 +14,11 @@
                 await kaspa.default('../../web/kaspa-core/kaspa_bg.wasm');
 
                 let network = currentNetwork();
-                log(`Connecting to Kaspa network...`);
+                log(`Connecting to SLUG network...`);
                 log(`Selected network is ${network.class("network")}...`);
                 
-                const resolver = new Resolver();
-                // let url = resolver.getUrl(Encoding.Borsh, "mainnet")
-                const rpc = await resolver.connect(network);
-                // const rpc = new RpcClient({ url, networkId: "mainnet" });
+                const rpc = new RpcClient({ url: rpcUrl(network), networkId: network });
+                await rpc.connect();
                 
                 log("Connected to", rpc.url.class("network"));
 
@@ -41,8 +39,8 @@
                     events += 1;
                 });
 
-                // kaspa:qpamkvhgh0kzx50gwvvp5xs8ktmqutcy3dfs9dc3w7lm9rq0zs76vf959mmrp
-                // kaspa:qzeln8eue9nnrz85kn7x47smxhfqudyz6urv2wpquuvslq7ck4umys8gkt5x8
+                // slug:qpamkvhgh0kzx50gwvvp5xs8ktmqutcy3dfs9dc3w7lm9rq0zs76vwpkn7d08
+                // slug:qzeln8eue9nnrz85kn7x47smxhfqudyz6urv2wpquuvslq7ck4umyhr2qwz2p
 
                 log("");
                 log("Please note that some addresses may have thousands of UTXOs which makes it");

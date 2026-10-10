@@ -7,9 +7,9 @@ const fs = require('fs');
 const kaspa = require('../../../../nodejs/kaspa-dev');
 const {
     Wallet, setDefaultStorageFolder,
-    AccountKind, Mnemonic, Resolver,
-    kaspaToSompi,
-    sompiToKaspaString,
+    AccountKind, Mnemonic,
+    slgToSan,
+    sanToSlgString,
     Address
 } = kaspa;
 
@@ -63,7 +63,7 @@ setDefaultStorageFolder(storageFolder);
         }
         let transactionsResult = await wallet.transactionsDataGet({
             accountId,
-            networkId: "testnet-11",
+            networkId: "slug-testnet-1",
             start:0,
             end:20
         })
@@ -79,7 +79,7 @@ setDefaultStorageFolder(storageFolder);
             list.push({
                 Id: tx.id,
                 Type: tx.data.type,
-                Value: sompiToKaspaString(value(tx)||0)
+                Value: sanToSlgString(value(tx)||0)
             });
             //console.log("tx.data", tx.id, tx.data)
         });
@@ -93,7 +93,7 @@ setDefaultStorageFolder(storageFolder);
     try {
         
         const walletSecret = "abc";
-        wallet = new Wallet({resident: false, networkId: "testnet-11", resolver: new Resolver()});
+        wallet = new Wallet({resident: false, url: "ws://127.0.0.1:19212", networkId: "slug-testnet-1"});
         //console.log("wallet", wallet)
         // Ensure wallet file
         if (!await wallet.exists(filename)){
@@ -134,9 +134,9 @@ setDefaultStorageFolder(storageFolder);
                         let b = balance[id];
                         list.push({
                             Account: id.substring(0, 5)+"...",
-                            Mature: sompiToKaspaString(b.mature),
-                            Pending: sompiToKaspaString(b.pending),
-                            Outgoing: sompiToKaspaString(b.outgoing),
+                            Mature: sanToSlgString(b.mature),
+                            Pending: sanToSlgString(b.pending),
+                            Outgoing: sanToSlgString(b.outgoing),
                             MatureUtxo: b.matureUtxoCount,
                             PendingUtxo: b.pendingUtxoCount,
                             StasisUtxo: b.stasisUtxoCount
@@ -259,11 +259,11 @@ setDefaultStorageFolder(storageFolder);
             walletSecret,
             // @ts-ignore
             accountId: firstAccount.accountId,
-            priorityFeeSompi: kaspaToSompi("0.001"),
+            priorityFeeSan: slgToSan("0.001"),
             destination:[{
                 // @ts-ignore
                 address: firstAccount.changeAddress,
-                amount: kaspaToSompi("1.567")
+                amount: slgToSan("1.567")
             }]
         });
         console.log("sendResult", sendResult);
@@ -276,7 +276,7 @@ setDefaultStorageFolder(storageFolder);
             walletSecret,
             sourceAccountId: firstAccount.accountId,
             destinationAccountId: firstAccount.accountId,
-            transferAmountSompi: kaspaToSompi("2.456"),
+            transferAmountSan: slgToSan("2.456"),
         });
         console.log("transferResult", transferResult);
 

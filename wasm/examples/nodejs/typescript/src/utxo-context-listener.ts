@@ -6,10 +6,9 @@ import {
     PrivateKey,
     Address,
     RpcClient,
-    Resolver,
     UtxoProcessor,
     UtxoContext,
-    kaspaToSompi,
+    slgToSan,
     createTransactions,
     initConsolePanicHook,
     IUtxoProcessorEvent,
@@ -20,7 +19,7 @@ import {
     UtxoProcessorEventType,
 } from "../../../../nodejs/kaspa";
 
-import { parseArgs } from "./utils";
+import { parseArgs, rpcUrl } from "./utils";
 
 
 initConsolePanicHook();
@@ -32,8 +31,8 @@ let { encoding, networkId, destinationAddress } = parseArgs();
 
     const privateKey = new PrivateKey('b99d75736a0fd0ae2da658959813d680474f5a740a9c970a7da867141596178f');
     const sourceAddress = privateKey.toKeypair().toAddress(networkId);
-    let address = new Address("kaspa:qrxkessyzxkv5ve7rj7u36nxxvtt08lsknnd8e8zw3p7xsf8ck0cqeuyrhkp0")
-    address = new Address("kaspa:qpamkvhgh0kzx50gwvvp5xs8ktmqutcy3dfs9dc3w7lm9rq0zs76vf959mmrp");
+    let address = new Address("slug:qrxkessyzxkv5ve7rj7u36nxxvtt08lsknnd8e8zw3p7xsf8ck0cq7cx4jqdf")
+    address = new Address("slug:qpamkvhgh0kzx50gwvvp5xs8ktmqutcy3dfs9dc3w7lm9rq0zs76vwpkn7d08");
     console.info(`Source address: ${sourceAddress}`);
     console.info(`address: ${address}`);
 
@@ -43,7 +42,7 @@ let { encoding, networkId, destinationAddress } = parseArgs();
 
     // 1) Initialize RPC
     const rpc = new RpcClient({
-        resolver: new Resolver(),
+        url: rpcUrl(networkId),
         encoding,
         networkId
     });

@@ -340,7 +340,7 @@ pub trait Account: AnySync + Send + Sync + 'static {
         self: Arc<Self>,
         destination: PaymentDestination,
         fee_rate: Option<f64>,
-        priority_fee_sompi: Fees,
+        priority_fee_san: Fees,
         payload: Option<Vec<u8>>,
         wallet_secret: Secret,
         payment_secret: Option<Secret>,
@@ -351,7 +351,7 @@ pub trait Account: AnySync + Send + Sync + 'static {
         let signer = Arc::new(Signer::new(self.clone().as_dyn_arc(), keydata, payment_secret));
 
         let settings =
-            GeneratorSettings::try_new_with_account(self.clone().as_dyn_arc(), destination, fee_rate, priority_fee_sompi, payload)?;
+            GeneratorSettings::try_new_with_account(self.clone().as_dyn_arc(), destination, fee_rate, priority_fee_san, payload)?;
 
         let generator = Generator::try_new(settings, Some(signer), Some(abortable))?;
 
@@ -378,13 +378,13 @@ pub trait Account: AnySync + Send + Sync + 'static {
         wallet_secret: Secret,
         payment_secret: Option<Secret>,
         fee_rate: Option<f64>,
-        reveal_fee_sompi: u64,
+        reveal_fee_san: u64,
         payload: Option<Vec<u8>>,
         abortable: &Abortable,
     ) -> Result<Bundle, Error> {
         commit_reveal_batch_bundle(
             pskb::CommitRevealBatchKind::Manual { hop_payment: start_destination, destination_payment: end_destination },
-            reveal_fee_sompi,
+            reveal_fee_san,
             script_sig,
             payload,
             fee_rate,
@@ -402,15 +402,15 @@ pub trait Account: AnySync + Send + Sync + 'static {
         script_sig: Vec<u8>,
         wallet_secret: Secret,
         payment_secret: Option<Secret>,
-        commit_amount_sompi: u64,
+        commit_amount_san: u64,
         fee_rate: Option<f64>,
-        reveal_fee_sompi: u64,
+        reveal_fee_san: u64,
         payload: Option<Vec<u8>>,
         abortable: &Abortable,
     ) -> Result<Bundle, Error> {
         commit_reveal_batch_bundle(
-            pskb::CommitRevealBatchKind::Parameterized { address, commit_amount_sompi },
-            reveal_fee_sompi,
+            pskb::CommitRevealBatchKind::Parameterized { address, commit_amount_san },
+            reveal_fee_san,
             script_sig,
             payload,
             fee_rate,
@@ -426,14 +426,14 @@ pub trait Account: AnySync + Send + Sync + 'static {
         self: Arc<Self>,
         destination: PaymentDestination,
         fee_rate: Option<f64>,
-        priority_fee_sompi: Fees,
+        priority_fee_san: Fees,
         payload: Option<Vec<u8>>,
         wallet_secret: Secret,
         payment_secret: Option<Secret>,
         abortable: &Abortable,
     ) -> Result<Bundle, Error> {
         let settings =
-            GeneratorSettings::try_new_with_account(self.clone().as_dyn_arc(), destination, fee_rate, priority_fee_sompi, payload)?;
+            GeneratorSettings::try_new_with_account(self.clone().as_dyn_arc(), destination, fee_rate, priority_fee_san, payload)?;
         let keydata = self.prv_key_data(wallet_secret).await?;
         let signer = Arc::new(PSKBSigner::new(self.clone().as_dyn_arc(), keydata, payment_secret));
         let generator = Generator::try_new(settings, None, Some(abortable))?;
@@ -494,8 +494,8 @@ pub trait Account: AnySync + Send + Sync + 'static {
         Ok(ids)
     }
 
-    async fn get_utxos(self: Arc<Self>, addresses: Option<Vec<Address>>, min_amount_sompi: Option<u64>) -> Result<Vec<UtxoEntry>> {
-        let utxos = self.utxo_context().get_utxos(addresses, min_amount_sompi).await?;
+    async fn get_utxos(self: Arc<Self>, addresses: Option<Vec<Address>>, min_amount_san: Option<u64>) -> Result<Vec<UtxoEntry>> {
+        let utxos = self.utxo_context().get_utxos(addresses, min_amount_san).await?;
         Ok(utxos)
     }
 
@@ -503,9 +503,9 @@ pub trait Account: AnySync + Send + Sync + 'static {
     async fn transfer(
         self: Arc<Self>,
         destination_account_id: AccountId,
-        transfer_amount_sompi: u64,
+        transfer_amount_san: u64,
         fee_rate: Option<f64>,
-        priority_fee_sompi: Fees,
+        priority_fee_san: Fees,
         wallet_secret: Secret,
         payment_secret: Option<Secret>,
         abortable: &Abortable,
@@ -522,14 +522,14 @@ pub trait Account: AnySync + Send + Sync + 'static {
             .ok_or_else(|| Error::AccountNotFound(destination_account_id))?;
 
         let destination_address = destination_account.receive_address()?;
-        let final_transaction_destination = PaymentDestination::from(PaymentOutput::new(destination_address, transfer_amount_sompi));
+        let final_transaction_destination = PaymentDestination::from(PaymentOutput::new(destination_address, transfer_amount_san));
         let final_transaction_payload = None;
 
         let settings = GeneratorSettings::try_new_with_account(
             self.clone().as_dyn_arc(),
             final_transaction_destination,
             fee_rate,
-            priority_fee_sompi,
+            priority_fee_san,
             final_transaction_payload,
         )?
         .utxo_context_transfer(destination_account.utxo_context());
@@ -555,11 +555,11 @@ pub trait Account: AnySync + Send + Sync + 'static {
         self: Arc<Self>,
         destination: PaymentDestination,
         fee_rate: Option<f64>,
-        priority_fee_sompi: Fees,
+        priority_fee_san: Fees,
         payload: Option<Vec<u8>>,
         abortable: &Abortable,
     ) -> Result<GeneratorSummary> {
-        let settings = GeneratorSettings::try_new_with_account(self.as_dyn_arc(), destination, fee_rate, priority_fee_sompi, payload)?;
+        let settings = GeneratorSettings::try_new_with_account(self.as_dyn_arc(), destination, fee_rate, priority_fee_san, payload)?;
 
         let generator = Generator::try_new(settings, None, Some(abortable))?;
 
@@ -891,26 +891,26 @@ mod tests {
 
     fn gen0_receive_addresses() -> Vec<&'static str> {
         vec![
-            "kaspatest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwmx9evrfz",
-            "kaspatest:qqfwmv2jm7dsuju9wz27ptdm4e28qh6evfsm66uf2vf4fxmpxfqgym4m2fcyp",
-            "kaspatest:qpcerqk4ltxtyprv9096wrlzjx5mnrlw4fqce6hnl3axy7tkvyjxypjc5dyqs",
-            "kaspatest:qr9m4h44ghmyz4wagktx8kgmh9zj8h8q0f6tc87wuad5xvzkdlwd6uu9plg2c",
-            "kaspatest:qrkxylqkyjtkjr5zs4z5wjmhmj756e84pa05amcw3zn8wdqjvn4tcc2gcqhrw",
-            "kaspatest:qp3w5h9hp9ude4vjpllsm4qpe8rcc5dmeealkl0cnxlgtj4ly7rczqxcdamvr",
-            "kaspatest:qpqen78dezzj4w7rae4n6kvahlr6wft7jy3lcul78709asxksgxc2kr9fgv6j",
-            "kaspatest:qq7upgj3g8klaylc4etwhlmr70t24wu4n4qrlayuw44yd8wx40seje27ah2x7",
-            "kaspatest:qqt2jzgzwy04j8np6ne4g0akmq4gj3fha0gqupr2mjj95u5utzxqvv33mzpcu",
-            "kaspatest:qpcnt3vscphae5q8h576xkufhtuqvntg0ves8jnthgfaxy8ajek8zz3jcg4de",
-            "kaspatest:qz7wzgzvnadgp6v4u6ua9f3hltaa3cv8635mvzlepa63ttt72c6m208g48q0p",
-            "kaspatest:qpqtsd4flc0n4g720mjwk67tnc46xv9ns5xs2khyvlvszy584ej4xq9adw9h9",
-            "kaspatest:qq4uy92hzh9eauypps060g2k7zv2xv9fsgc5gxkwgsvlhc7tw4a3gk5rnpc0k",
-            "kaspatest:qqgfhd3ur2v2xcf35jggre97ar3awl0h62qlmmaaq28dfrhwzgjnxntdugycr",
-            "kaspatest:qzuflj6tgzwjujsym9ap6dvqz9zfwnmkta68fjulax09clh8l4rfslj9j9nnt",
-            "kaspatest:qz6645a8rrf0hmrdvyr9uj673lrr9zwhjvvrytqpjsjdet23czvc784e84lfe",
-            "kaspatest:qz2fvhmk996rmmg44ht0s79gnw647ehu8ncmpf3sf6txhkfmuzuxssceg9sw0",
-            "kaspatest:qr9aflwylzdu99z2z25lzljyeszhs7j02zhfdazydgahq2vg6x8w7nfp3juqq",
-            "kaspatest:qzen7nh0lmzvujlye5sv3nwgwdyew2zp9nz5we7pay65wrt6kfxd6khwja56q",
-            "kaspatest:qq74jrja2mh3wn6853g8ywpfy9nlg0uuzchvpa0cmnvds4tfnpjj5tqgnqm4f",
+            "slugtest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwn5uzda96",
+            "slugtest:qqfwmv2jm7dsuju9wz27ptdm4e28qh6evfsm66uf2vf4fxmpxfqgyn8z3gxge",
+            "slugtest:qpcerqk4ltxtyprv9096wrlzjx5mnrlw4fqce6hnl3axy7tkvyjxyfqp0v6vg",
+            "slugtest:qr9m4h44ghmyz4wagktx8kgmh9zj8h8q0f6tc87wuad5xvzkdlwd65wu67kxq",
+            "slugtest:qrkxylqkyjtkjr5zs4z5wjmhmj756e84pa05amcw3zn8wdqjvn4tcsc3rpf0k",
+            "slugtest:qp3w5h9hp9ude4vjpllsm4qpe8rcc5dmeealkl0cnxlgtj4ly7rczg5pku9qm",
+            "slugtest:qpqen78dezzj4w7rae4n6kvahlr6wft7jy3lcul78709asxksgxc273ujfjk2",
+            "slugtest:qq7upgj3g8klaylc4etwhlmr70t24wu4n4qrlayuw44yd8wx40sej3c8xk52x",
+            "slugtest:qqt2jzgzwy04j8np6ne4g0akmq4gj3fha0gqupr2mjj95u5utzxqvyrgqrl5y",
+            "slugtest:qpcnt3vscphae5q8h576xkufhtuqvntg0ves8jnthgfaxy8ajek8z2rtrftpp",
+            "slugtest:qz7wzgzvnadgp6v4u6ua9f3hltaa3cv8635mvzlepa63ttt72c6m2843wx7re",
+            "slugtest:qpqtsd4flc0n4g720mjwk67tnc46xv9ns5xs2khyvlvszy584ej4xghyk0mma",
+            "slugtest:qq4uy92hzh9eauypps060g2k7zv2xv9fsgc5gxkwgsvlhc7tw4a3g7x6gqxrw",
+            "slugtest:qqgfhd3ur2v2xcf35jggre97ar3awl0h62qlmmaaq28dfrhwzgjnxme58f65m",
+            "slugtest:qzuflj6tgzwjujsym9ap6dvqz9zfwnmkta68fjulax09clh8l4rfshqufydln",
+            "slugtest:qz6645a8rrf0hmrdvyr9uj673lrr9zwhjvvrytqpjsjdet23czvc708qu5p9p",
+            "slugtest:qz2fvhmk996rmmg44ht0s79gnw647ehu8ncmpf3sf6txhkfmuzuxsc2qnywzh",
+            "slugtest:qr9aflwylzdu99z2z25lzljyeszhs7j02zhfdazydgahq2vg6x8w7mmc2nzvc",
+            "slugtest:qzen7nh0lmzvujlye5sv3nwgwdyew2zp9nz5we7pay65wrt6kfxd679hfu2kc",
+            "slugtest:qq74jrja2mh3wn6853g8ywpfy9nlg0uuzchvpa0cmnvds4tfnpjj5rj3gp9e3",
         ]
     }
 
@@ -941,26 +941,26 @@ mod tests {
 
     fn gen0_change_addresses() -> Vec<&'static str> {
         vec![
-            "kaspatest:qrc0xjaq00fq8qzvrudfuk9msag7whnd72nefwq5d07ks4j4d97kzm0x3ertv",
-            "kaspatest:qpf00utzmaa2u8w9353ssuazsv7fzs605eg00l9luyvcwzwj9cx0z4m8n9p5j",
-            "kaspatest:qrkxek2q6eze7lhg8tq0qw9h890lujvjhtnn5vllrkgj2rgudl6xv3ut9j5mu",
-            "kaspatest:qrn0ga4lddypp9w8eygt9vwk92lagr55e2eqjgkfr09az90632jc6namw09ll",
-            "kaspatest:qzga696vavxtrg0heunvlta5ghjucptll9cfs5x0m2j05s55vtl36uhpauwuk",
-            "kaspatest:qq8ernhu26fgt3ap73jalhzl5u5zuergm9f0dcsa8uy7lmcx875hwl3r894fp",
-            "kaspatest:qrauma73jdn0yfwspr7yf39recvjkk3uy5e4309vjc82qq7sxtskjphgwu0sx",
-            "kaspatest:qzk7yd3ep4def7sv7yhl8m0mr7p75zclycrv0x0jfm0gmwte23k0u5f9dclzy",
-            "kaspatest:qzvm7mnhpkrw52c4p85xd5scrpddxnagzmhmz4v8yt6nawwzgjtavu84ft88x",
-            "kaspatest:qq4feppacdug6p6zk2xf4rw400ps92c9h78gctfcdlucvzzjwzyz7j650nw52",
-            "kaspatest:qryepg9agerq4wdzpv39xxjdytktga53dphvs6r4fdjc0gfyndhk7ytpnl5tv",
-            "kaspatest:qpywh5galz3dd3ndkx96ckpvvf5g8t4adaf0k58y4kgf8w06jt5myjrpluvk6",
-            "kaspatest:qq32grys34737mfe5ud5j2v03cjefynuym27q7jsdt28qy72ucv3sv0teqwvm",
-            "kaspatest:qper47ahktzf9lv67a5e9rmfk35pq4xneufhu97px6tlzd0d4qkaklx7m3f7w",
-            "kaspatest:qqal0t8w2y65a4lm5j5y4maxyy4nuwxj6u364eppj5qpxz9s4l7tknfw0u6r3",
-            "kaspatest:qr7p66q7lmdqcf2vnyus38efx3l4apvqvv5sff66n808mtclef2w7vxh3afnn",
-            "kaspatest:qqx4xydd58qe5csedz3l3q7v02e49rwqnydc425d6jchv02el2gdv4055vh0y",
-            "kaspatest:qzyc9l5azcae7y3yltgnl5k2dzzvngp90a0glsepq0dnz8dvp4jyveezpqse8",
-            "kaspatest:qq705x6hl9qdvr03n0t65esevpvzkkt2xj0faxp6luvd2hk2gr76chxw8xhy5",
-            "kaspatest:qzufchm3cy2ej6f4cjpxpnt3g7c2gn77c320qhrnrjqqskpn7vnzsaxg6z0kd",
+            "slugtest:qrc0xjaq00fq8qzvrudfuk9msag7whnd72nefwq5d07ks4j4d97kznal2ca85",
+            "slugtest:qpf00utzmaa2u8w9353ssuazsv7fzs605eg00l9luyvcwzwj9cx0zaf7gylc2",
+            "slugtest:qrkxek2q6eze7lhg8tq0qw9h890lujvjhtnn5vllrkgj2rgudl6xvewj7n2hy",
+            "slugtest:qrn0ga4lddypp9w8eygt9vwk92lagr55e2eqjgkfr09az90632jc6m0z4wmn8",
+            "slugtest:qzga696vavxtrg0heunvlta5ghjucptll9cfs5x0m2j05s55vtl3659cxassw",
+            "slugtest:qq8ernhu26fgt3ap73jalhzl5u5zuergm9f0dcsa8uy7lmcx875hwhr6uyt9e",
+            "slugtest:qrauma73jdn0yfwspr7yf39recvjkk3uy5e4309vjc82qq7sxtskjf934a3u7",
+            "slugtest:qzk7yd3ep4def7sv7yhl8m0mr7p75zclycrv0x0jfm0gmwte23k0uumukepwu",
+            "slugtest:qzvm7mnhpkrw52c4p85xd5scrpddxnagzmhmz4v8yt6nawwzgjtav54vj2et7",
+            "slugtest:qq4feppacdug6p6zk2xf4rw400ps92c9h78gctfcdlucvzzjwzyz76gd5jscj",
+            "slugtest:qryepg9agerq4wdzpv39xxjdytktga53dphvs6r4fdjc0gfyndhk7vecg7285",
+            "slugtest:qpywh5galz3dd3ndkx96ckpvvf5g8t4adaf0k58y4kgf8w06jt5my63cyaj6z",
+            "slugtest:qq32grys34737mfe5ud5j2v03cjefynuym27q7jsdt28qy72ucv3syajzpsqr",
+            "slugtest:qper47ahktzf9lv67a5e9rmfk35pq4xneufhu97px6tlzd0d4qkakh58qshjk",
+            "slugtest:qqal0t8w2y65a4lm5j5y4maxyy4nuwxj6u364eppj5qpxz9s4l7tkmmh5ay0f",
+            "slugtest:qr7p66q7lmdqcf2vnyus38efx3l4apvqvv5sff66n808mtclef2w7y5w2uhlt",
+            "slugtest:qqx4xydd58qe5csedz3l3q7v02e49rwqnydc425d6jchv02el2gdvaad0dfru",
+            "slugtest:qzyc9l5azcae7y3yltgnl5k2dzzvngp90a0glsepq0dnz8dvp4jyv3tm6pw4l",
+            "slugtest:qq705x6hl9qdvr03n0t65esevpvzkkt2xj0faxp6luvd2hk2gr76cl5hu8fgv",
+            "slugtest:qzufchm3cy2ej6f4cjpxpnt3g7c2gn77c320qhrnrjqqskpn7vnzs453pr364",
         ]
     }
 

@@ -10,41 +10,40 @@ use workflow_wasm::prelude::*;
 extern "C" {
     #[wasm_bindgen(typescript_type = "bigint | number | HexString")]
     #[derive(Clone, Debug)]
-    pub type ISompiToKaspa;
+    pub type ISanToSlg;
 }
 
-/// Convert a Kaspa string to Sompi represented by bigint.
+/// Convert an SLG amount string to san represented by bigint.
 /// This function provides correct precision handling and
 /// can be used to parse user input.
 /// @category Wallet SDK
-#[wasm_bindgen(js_name = "kaspaToSompi")]
-pub fn kaspa_to_sompi(kaspa: String) -> Option<BigInt> {
-    crate::utils::try_kaspa_str_to_sompi(kaspa).ok().flatten().map(Into::into)
+#[wasm_bindgen(js_name = "slgToSan")]
+pub fn slg_to_san(slg: String) -> Result<Option<BigInt>> {
+    Ok(crate::utils::try_slg_str_to_san(slg)?.map(Into::into))
 }
 
 ///
-/// Convert Sompi to a string representation of the amount in Kaspa.
+/// Convert san to an SLG string.
 ///
 /// @category Wallet SDK
 ///
-#[wasm_bindgen(js_name = "sompiToKaspaString")]
-pub fn sompi_to_kaspa_string(sompi: ISompiToKaspa) -> Result<String> {
-    let sompi = sompi.try_as_u64()?;
-    Ok(crate::utils::sompi_to_kaspa_string(sompi))
+#[wasm_bindgen(js_name = "sanToSlgString")]
+pub fn san_to_slg_string(san: ISanToSlg) -> Result<String> {
+    let san = san.try_as_u64()?;
+    Ok(crate::utils::san_to_slg_string(san))
 }
 
 ///
-/// Format a Sompi amount to a string representation of the amount in Kaspa with a suffix
-/// based on the network type (e.g. `KAS` for mainnet, `TKAS` for testnet,
-/// `SKAS` for simnet, `DKAS` for devnet).
+/// Format a san amount as SLG with a currency suffix.
+/// The displayed ticker is `SLG` on all SLUG networks.
 ///
 /// @category Wallet SDK
 ///
-#[wasm_bindgen(js_name = "sompiToKaspaStringWithSuffix")]
-pub fn sompi_to_kaspa_string_with_suffix(sompi: ISompiToKaspa, network: &NetworkTypeT) -> Result<String> {
-    let sompi = sompi.try_as_u64()?;
+#[wasm_bindgen(js_name = "sanToSlgStringWithSuffix")]
+pub fn san_to_slg_string_with_suffix(san: ISanToSlg, network: &NetworkTypeT) -> Result<String> {
+    let san = san.try_as_u64()?;
     let network_type = NetworkType::try_from(network)?;
-    Ok(crate::utils::sompi_to_kaspa_string_with_suffix(sompi, &network_type))
+    Ok(crate::utils::san_to_slg_string_with_suffix(san, &network_type))
 }
 
 #[wasm_bindgen(js_name = "getNetworkParams")]

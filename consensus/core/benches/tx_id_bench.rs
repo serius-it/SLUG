@@ -36,12 +36,12 @@ fn create_test_transaction(version: u16) -> Transaction {
 
     let outputs = vec![
         TransactionOutput {
-            value: 100_000_000, // 1 KAS
+            value: 100_000_000, // 1 SLG
             script_public_key: ScriptPublicKey::new(0, script_pub_key.clone()),
             covenant: None,
         },
         TransactionOutput {
-            value: 50_000_000, // 0.5 KAS (change)
+            value: 50_000_000, // 0.5 SLG (change)
             script_public_key: ScriptPublicKey::new(0, script_pub_key.clone()),
             covenant: None,
         },

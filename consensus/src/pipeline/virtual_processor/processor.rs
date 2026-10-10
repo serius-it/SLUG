@@ -452,8 +452,9 @@ impl VirtualStateProcessor {
 
                     let mut ctx = UtxoProcessingContext::new(mergeset_data.into(), selected_parent_multiset_hash);
 
-                    self.calculate_utxo_state(&mut ctx, &selected_parent_utxo_view, pov_daa_score);
-                    let res = self.verify_expected_utxo_state(&mut ctx, &selected_parent_utxo_view, &header);
+                    let res = self
+                        .calculate_utxo_state(&mut ctx, &selected_parent_utxo_view, pov_daa_score)
+                        .and_then(|()| self.verify_expected_utxo_state(&mut ctx, &selected_parent_utxo_view, &header));
 
                     match res {
                         Err(rule_error) => {
@@ -568,7 +569,7 @@ impl VirtualStateProcessor {
         let virtual_past_median_time = self.window_manager.calc_past_median_time(&virtual_ghostdag_data)?.0;
 
         // Calc virtual UTXO state relative to selected parent
-        self.calculate_utxo_state(&mut ctx, &selected_parent_utxo_view, virtual_daa_window.daa_score);
+        self.calculate_utxo_state(&mut ctx, &selected_parent_utxo_view, virtual_daa_window.daa_score)?;
 
         // Update the accumulated diff
         accumulated_diff.with_diff_in_place(&ctx.mergeset_diff).unwrap();
@@ -1425,16 +1426,23 @@ impl VirtualStateProcessor {
         let pruning_point = self.pruning_point_store.read().pruning_point().unwrap();
         let header_pruning_point =
             self.pruning_point_manager.expected_header_pruning_point(virtual_state.ghostdag_data.to_compact()).pruning_point;
+        let selected_parent_coinbase = self.block_transactions_store.get(virtual_state.ghostdag_data.selected_parent).unwrap();
+        let selected_parent_cumulative_subsidy = self
+            .coinbase_manager
+            .deserialize_coinbase_payload(&selected_parent_coinbase[0].payload)
+            .map_err(RuleError::BadCoinbasePayload)?
+            .cumulative_subsidy;
         let coinbase = self
             .coinbase_manager
             .expected_coinbase_transaction(
                 virtual_state.daa_score,
+                selected_parent_cumulative_subsidy,
                 miner_data.clone(),
                 &virtual_state.ghostdag_data,
                 &virtual_state.mergeset_rewards,
                 &virtual_state.mergeset_non_daa,
             )
-            .unwrap();
+            .map_err(RuleError::BadCoinbasePayload)?;
         txs.insert(0, coinbase.tx);
         let version = self.block_version;
         assert_eq!(virtual_state.ghostdag_data.selected_parent, virtual_state.parents[0]);

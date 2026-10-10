@@ -25,29 +25,19 @@ pub fn register_link_matchers(cli: &Arc<KaspaCli>) -> Result<()> {
         })),
     )?;
 
-    // addresses (open,copy) https://explorer.kaspa.org/addresses/
+    // SLUG addresses (copy); no external explorer is configured.
     let cli_ = cli.clone();
     cli.term().register_link_matcher(
-        &js_sys::RegExp::new(r"(kaspa|kaspatest):\S+", "i"),
+        &js_sys::RegExp::new(r"(slug|slugtest|slugdev|slugsim):\S+", "i"),
         Arc::new(Box::new(move |modifiers, uri| {
             if modifiers.ctrl || modifiers.meta {
-                if uri.starts_with("kaspatest") {
-                    cli_.term().writeln("testnet addresses can not be currently looked up with the block explorer");
-                } else {
-                    let url = format!("https://explorer.kaspa.org/addresses/{uri}");
-                    if is_nw() {
-                        nw_sys::shell::open_external(&url);
-                    } else {
-                        link::open(&url);
-                    }
-                }
-            } else {
-                write_to_clipboard(&cli_, uri);
+                cli_.term().writeln("No SLUG explorer is configured; copied the address instead.");
             }
+            write_to_clipboard(&cli_, uri);
         })),
     )?;
 
-    // blocks (open,copy) https://explorer.kaspa.org/blocks/
+    // Blocks can be copied until a SLUG explorer is configured.
     let cli_ = cli.clone();
     cli.term().register_link_matcher(
         &js_sys::RegExp::new(r"(block|pool):?\s+[0-9a-fA-F]{64}", "i"),
@@ -56,10 +46,9 @@ pub fn register_link_matchers(cli: &Arc<KaspaCli>) -> Result<()> {
             let uri = re.replace(text, "");
 
             if modifiers.ctrl || modifiers.meta {
-                nw_sys::shell::open_external(&format!("https://explorer.kaspa.org/blocks/{uri}"));
-            } else {
-                write_to_clipboard(&cli_, uri.to_string().as_str());
+                cli_.term().writeln("No SLUG explorer is configured; copied the block hash instead.");
             }
+            write_to_clipboard(&cli_, uri.to_string().as_str());
         })),
     )?;
 
@@ -72,10 +61,9 @@ pub fn register_link_matchers(cli: &Arc<KaspaCli>) -> Result<()> {
             let uri = re.replace(text, "");
 
             if modifiers.ctrl || modifiers.meta {
-                nw_sys::shell::open_external(&format!("https://explorer.kaspa.org/txs/{uri}"));
-            } else {
-                write_to_clipboard(&cli_, uri.to_string().as_str());
+                cli_.term().writeln("No SLUG explorer is configured; copied the transaction ID instead.");
             }
+            write_to_clipboard(&cli_, uri.to_string().as_str());
         })),
     )?;
 

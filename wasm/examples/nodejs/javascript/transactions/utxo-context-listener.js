@@ -6,17 +6,17 @@ const {
     PrivateKey,
     Address,
     RpcClient,
-    Resolver,
     UtxoProcessor,
     UtxoContext,
-    kaspaToSompi,
+    slgToSan,
     createTransactions,
     initConsolePanicHook
 } = require('../../../../nodejs/kaspa');
 
 initConsolePanicHook();
 
-const { encoding, networkId, address : destinationAddress } = require("../utils").parseArgs();
+const { parseArgs, rpcUrl } = require("../utils");
+const { encoding, networkId, address : destinationAddress } = parseArgs();
 
 (async () => {
 
@@ -30,8 +30,7 @@ const { encoding, networkId, address : destinationAddress } = require("../utils"
 
     // 1) Initialize RPC
     const rpc = new RpcClient({
-        // url : "127.0.0.1",
-        resolver : new Resolver(),
+        url: rpcUrl(networkId),
         encoding,
         networkId
     });
@@ -68,7 +67,7 @@ const { encoding, networkId, address : destinationAddress } = require("../utils"
     // });
 
     // default address (if not supplied) - TODO - change to built-in wallet-stub address
-    // kaspatest:qpa8gs8w0quc3ghpx2l2dv30ny0mjuwyaj30xduw92v6mmta7df6uuz3ryfhy
+    // slugtest:qpa8gs8w0quc3ghpx2l2dv30ny0mjuwyaj30xduw92v6mmta7df6u5sgc9hmu
 
     processor.addEventListener("utxo-proc-start", async (event) => {
         // console.log("event:", event);

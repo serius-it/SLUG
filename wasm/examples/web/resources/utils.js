@@ -20,7 +20,21 @@ String.prototype.class = function(className) {
 }
 
 function currentNetwork() {
-    return window.location.hash.replace(/^#/,'') || 'mainnet';
+    return window.location.hash.replace(/^#/,'') || 'slug-mainnet';
+}
+
+function rpcUrl(network = currentNetwork()) {
+    const ports = {
+        'slug-mainnet': 19112,
+        'slug-testnet-1': 19212,
+        'slug-devnet': 19312,
+        'slug-simnet': 19412,
+    };
+    const port = ports[network];
+    if (!port) {
+        throw new Error(`Unsupported SLUG network: ${network}`);
+    }
+    return `ws://127.0.0.1:${port}`;
 }
 
 // @ts-ignore
@@ -32,7 +46,7 @@ window.changeNetwork = (network) => {
 
 function createMenu() {
     let menu = document.getElementById('menu');
-    [ 'mainnet', 'testnet-10', 'testnet-11' ].forEach((network) => {
+    [ 'slug-mainnet', 'slug-testnet-1', 'slug-devnet', 'slug-simnet' ].forEach((network) => {
         if (network === currentNetwork()) {
             let el = document.createElement('text');
             el.innerHTML = ` [${network}] `;
@@ -133,4 +147,4 @@ function stringify(json) {
     });
 }
 
-export { log, logToId, clearId, randomId, stringify, currentNetwork, disconnectHandler };
+export { log, logToId, clearId, randomId, stringify, currentNetwork, rpcUrl, disconnectHandler };

@@ -21,7 +21,7 @@ kaspa.init_console_panic_hook();
     // Either Encoding.Borsh or Encoding.JSON
     const encoding = args.encoding;
     // The kaspa address that was passed as an argument or a default one
-    const address = args.address ?? "kaspatest:qz7ulu4c25dh7fzec9zjyrmlhnkzrg4wmf89q7gzr3gfrsj3uz6xjceef60sd";
+    const address = args.address ?? "slugtest:qz7ulu4c25dh7fzec9zjyrmlhnkzrg4wmf89q7gzr3gfrsj3uz6xjstqjm3u4";
 
     const rpc = new RpcClient({
         url : "127.0.0.1",

@@ -17,6 +17,8 @@ impl<T: AsRef<[u8]>> MinerData<T> {
 pub struct CoinbaseData<T: AsRef<[u8]> = Vec<u8>> {
     pub blue_score: u64,
     pub subsidy: u64,
+    /// Cumulative mining subsidy in the selected-parent past, including this block's mergeset and subsidy.
+    pub cumulative_subsidy: u64,
     pub miner_data: MinerData<T>,
 }
 

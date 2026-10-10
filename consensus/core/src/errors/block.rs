@@ -127,6 +127,9 @@ pub enum RuleError {
     #[error("wrong coinbase subsidy: expected {0} but got {1}")]
     WrongSubsidy(u64, u64),
 
+    #[error("coinbase fee aggregation overflow")]
+    CoinbaseFeeOverflow,
+
     #[error("transaction {0} is found more than once in the block")]
     DuplicateTransactions(TransactionId),
 

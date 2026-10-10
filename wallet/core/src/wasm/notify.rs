@@ -478,8 +478,8 @@ declare! {
     r#"
     /**
      * Emitted by {@link UtxoProcessor} after successfully opening an RPC
-     * connection to the Kaspa node. This event contains general information
-     * about the Kaspa node.
+     * connection to the SLUG node. This event contains general information
+     * about the SLUG node.
      * 
      * @category Wallet Events
      */

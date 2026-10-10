@@ -564,7 +564,7 @@ impl ClientHandler {
                             client_clone.disconnect();
                         } else {
                             record_worker_error(&instance_id, &wallet_addr, crate::errors::ErrorShortCode::FailedBlockFetch.as_str());
-                            error!("failed fetching new block template from kaspa: {}", e);
+                            error!("failed fetching new block template from SLUG node: {}", e);
                         }
                         return;
                     }

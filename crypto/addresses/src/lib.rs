@@ -1,9 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 //!
-//! Kaspa [`Address`] implementation.
+//! SLUG [`Address`] implementation.
 //!
-//! In it's string form, the Kaspa [`Address`] is represented by a `bech32`-encoded
+//! In its string form, a SLUG [`Address`] is represented by a `bech32`-encoded
 //! address string combined with a network type. The `bech32` string encoding is
 //! comprised of a public key, the public key version and the resulting checksum.
 //!
@@ -67,17 +67,17 @@ pub enum AddressError {
     WASM(String),
 }
 
-/// Address prefix identifying the network type this address belongs to (such as `kaspa`, `kaspatest`, `kaspasim`, `kaspadev`).
+/// Address prefix identifying the SLUG network type this address belongs to.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 #[borsh(use_discriminant = true)]
 pub enum Prefix {
-    #[serde(rename = "kaspa")]
+    #[serde(rename = "slug")]
     Mainnet,
-    #[serde(rename = "kaspatest")]
+    #[serde(rename = "slugtest")]
     Testnet,
-    #[serde(rename = "kaspasim")]
+    #[serde(rename = "slugsim")]
     Simnet,
-    #[serde(rename = "kaspadev")]
+    #[serde(rename = "slugdev")]
     Devnet,
     #[cfg(test)]
     A,
@@ -88,10 +88,10 @@ pub enum Prefix {
 impl Prefix {
     fn as_str(&self) -> &'static str {
         match self {
-            Prefix::Mainnet => "kaspa",
-            Prefix::Testnet => "kaspatest",
-            Prefix::Simnet => "kaspasim",
-            Prefix::Devnet => "kaspadev",
+            Prefix::Mainnet => "slug",
+            Prefix::Testnet => "slugtest",
+            Prefix::Simnet => "slugsim",
+            Prefix::Devnet => "slugdev",
             #[cfg(test)]
             Prefix::A => "a",
             #[cfg(test)]
@@ -119,10 +119,10 @@ impl TryFrom<&str> for Prefix {
 
     fn try_from(prefix: &str) -> Result<Self, Self::Error> {
         match prefix {
-            "kaspa" => Ok(Prefix::Mainnet),
-            "kaspatest" => Ok(Prefix::Testnet),
-            "kaspasim" => Ok(Prefix::Simnet),
-            "kaspadev" => Ok(Prefix::Devnet),
+            "slug" => Ok(Prefix::Mainnet),
+            "slugtest" => Ok(Prefix::Testnet),
+            "slugsim" => Ok(Prefix::Simnet),
+            "slugdev" => Ok(Prefix::Devnet),
             #[cfg(test)]
             "a" => Ok(Prefix::A),
             #[cfg(test)]
@@ -204,7 +204,7 @@ pub const PAYLOAD_VECTOR_SIZE: usize = 36;
 /// Used as the underlying type for address payload, optimized for the largest version length (33).
 pub type PayloadVec = SmallVec<[u8; PAYLOAD_VECTOR_SIZE]>;
 
-/// Kaspa [`Address`] struct that serializes to and from an address format string: `kaspa:qz0s...t8cv`.
+/// SLUG [`Address`] struct that serializes to and from an address format string: `slug:qz0s...t8cv`.
 ///
 /// @category Address
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
@@ -504,11 +504,11 @@ mod tests {
             (Address::new(Prefix::B, Version::ScriptHash, b"1234598760"), "b:pqcnyve5x5unsdekxqeusxeyu2"),
             (Address::new(Prefix::B, Version::ScriptHash, b"abcdefghijklmnopqrstuvwxyz"), "b:ppskycmyv4nxw6rfdf4kcmtwdac8zunnw36hvamc09aqtpppz8lk"),
             (Address::new(Prefix::B, Version::ScriptHash, b"000000000000000000000000000000000000000000"), "b:pqcrqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcrq7ag684l3"),
-            (Address::new(Prefix::Testnet, Version::PubKey, &[0u8; 32]),      "kaspatest:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhqrxplya"),
-            (Address::new(Prefix::Testnet, Version::PubKeyECDSA, &[0u8; 33]), "kaspatest:qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhe837j2d"),
-            (Address::new(Prefix::Testnet, Version::PubKeyECDSA, b"\xba\x01\xfc\x5f\x4e\x9d\x98\x79\x59\x9c\x69\xa3\xda\xfd\xb8\x35\xa7\x25\x5e\x5f\x2e\x93\x4e\x93\x22\xec\xd3\xaf\x19\x0a\xb0\xf6\x0e"), "kaspatest:qxaqrlzlf6wes72en3568khahq66wf27tuhfxn5nytkd8tcep2c0vrse6gdmpks"),
-            (Address::new(Prefix::Mainnet, Version::PubKey, &[0u8; 32]),      "kaspa:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e"),
-            (Address::new(Prefix::Mainnet, Version::PubKey, b"\x5f\xff\x3c\x4d\xa1\x8f\x45\xad\xcd\xd4\x99\xe4\x46\x11\xe9\xff\xf1\x48\xba\x69\xdb\x3c\x4e\xa2\xdd\xd9\x55\xfc\x46\xa5\x95\x22"), "kaspa:qp0l70zd5x85ttwd6jv7g3s3a8llzj96d8dncn4zmhv4tlzx5k2jyqh70xmfj"),
+            (Address::new(Prefix::Testnet, Version::PubKey, &[0u8; 32]),      "slugtest:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqlj6aqpg9"),
+            (Address::new(Prefix::Testnet, Version::PubKeyECDSA, &[0u8; 33]), "slugtest:qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5u3qhkq2"),
+            (Address::new(Prefix::Testnet, Version::PubKeyECDSA, b"\xba\x01\xfc\x5f\x4e\x9d\x98\x79\x59\x9c\x69\xa3\xda\xfd\xb8\x35\xa7\x25\x5e\x5f\x2e\x93\x4e\x93\x22\xec\xd3\xaf\x19\x0a\xb0\xf6\x0e"), "slugtest:qxaqrlzlf6wes72en3568khahq66wf27tuhfxn5nytkd8tcep2c0vrs6l7uj9uh"),
+            (Address::new(Prefix::Mainnet, Version::PubKey, &[0u8; 32]),      "slug:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthel"),
+            (Address::new(Prefix::Mainnet, Version::PubKey, b"\x5f\xff\x3c\x4d\xa1\x8f\x45\xad\xcd\xd4\x99\xe4\x46\x11\xe9\xff\xf1\x48\xba\x69\xdb\x3c\x4e\xa2\xdd\xd9\x55\xfc\x46\xa5\x95\x22"), "slug:qp0l70zd5x85ttwd6jv7g3s3a8llzj96d8dncn4zmhv4tlzx5k2jy8nuerd95"),
         ]
         // cspell:enable
     }
@@ -530,35 +530,50 @@ mod tests {
     }
 
     #[test]
+    fn slug_prefixes_are_distinct_from_kaspa_prefixes() {
+        let prefixes =
+            [(Prefix::Mainnet, "slug"), (Prefix::Testnet, "slugtest"), (Prefix::Devnet, "slugdev"), (Prefix::Simnet, "slugsim")];
+
+        for (prefix, expected) in prefixes {
+            assert_eq!(prefix.to_string(), expected);
+            assert_eq!(Prefix::try_from(expected).unwrap(), prefix);
+        }
+
+        for legacy in ["kaspa", "kaspatest", "kaspadev", "kaspasim"] {
+            assert!(Prefix::try_from(legacy).is_err());
+        }
+    }
+
+    #[test]
     fn test_errors() {
         // cspell:disable
-        let address_str: String = "kaspa:qqqqqqqqqqqqq1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e".to_string();
+        let address_str: String = "slug:qqqqqqqqqqqqq1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthel".to_string();
         let address: Result<Address, AddressError> = address_str.try_into();
         assert_eq!(Err(AddressError::DecodingError('1')), address);
 
         let invalid_char = 124u8 as char;
-        let address_str: String = format!("kaspa:qqqqqqqqqqqqq{invalid_char}qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e");
+        let address_str: String = format!("slug:qqqqqqqqqqqqq{invalid_char}qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthel");
         let address: Result<Address, AddressError> = address_str.try_into();
         assert_eq!(Err(AddressError::DecodingError(invalid_char)), address);
 
         let invalid_char = 129u8 as char;
-        let address_str: String = format!("kaspa:qqqqqqqqqqqqq{invalid_char}qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e");
+        let address_str: String = format!("slug:qqqqqqqqqqqqq{invalid_char}qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthel");
         let address: Result<Address, AddressError> = address_str.try_into();
         assert!(matches!(address, Err(AddressError::DecodingError(_))));
 
-        let address_str: String = "kaspa1:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e".to_string();
+        let address_str: String = "kaspa:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e".to_string();
         let address: Result<Address, AddressError> = address_str.try_into();
-        assert_eq!(Err(AddressError::InvalidPrefix("kaspa1".into())), address);
+        assert_eq!(Err(AddressError::InvalidPrefix("kaspa".into())), address);
 
-        let address_str: String = "kaspaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e".to_string();
+        let address_str: String = "slugqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthel".to_string();
         let address: Result<Address, AddressError> = address_str.try_into();
         assert_eq!(Err(AddressError::MissingPrefix), address);
 
-        let address_str: String = "kaspa:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4l".to_string();
+        let address_str = "slug:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthel".replace("hel", "hex");
         let address: Result<Address, AddressError> = address_str.try_into();
         assert_eq!(Err(AddressError::BadChecksum), address);
 
-        let address_str: String = "kaspa:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e".to_string();
+        let address_str: String = "slug:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3z8tthe".to_string();
         let address: Result<Address, AddressError> = address_str.try_into();
         assert_eq!(Err(AddressError::BadChecksum), address);
         // cspell:enable

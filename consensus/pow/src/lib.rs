@@ -75,3 +75,37 @@ pub fn calc_level_from_pow(pow: Uint256, max_block_level: BlockLevel) -> BlockLe
     let signed_block_level = max_block_level as i64 - pow.bits() as i64;
     max(signed_block_level, 0) as BlockLevel
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{State, calc_block_level_check_pow};
+    use kaspa_consensus_core::{
+        block::Block,
+        config::genesis::{DEVNET_GENESIS, GENESIS, SIMNET_GENESIS, TESTNET_GENESIS},
+    };
+
+    #[test]
+    fn slug_genesis_pow_matches_consensus_validation() {
+        for (network, genesis) in [
+            ("slug-mainnet", GENESIS),
+            ("slug-testnet-1", TESTNET_GENESIS),
+            ("slug-devnet", DEVNET_GENESIS),
+            ("slug-simnet", SIMNET_GENESIS),
+        ] {
+            let block: Block = (&genesis).into();
+            if network == "slug-mainnet" {
+                assert!(
+                    calc_block_level_check_pow(&block.header, 225).1,
+                    "mainnet genesis must follow the consensus genesis PoW bypass"
+                );
+            } else {
+                let state = State::new(&block.header);
+                assert!(
+                    state.check_pow(block.header.nonce).0,
+                    "{network} genesis nonce {} does not meet its PoW target",
+                    genesis.nonce
+                );
+            }
+        }
+    }
+}

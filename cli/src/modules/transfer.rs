@@ -11,7 +11,7 @@ impl Transfer {
         let account = ctx.wallet().account()?;
 
         if argv.len() < 2 {
-            tprintln!(ctx, "usage: transfer <account> <amount> <priority fee>");
+            tprintln!(ctx, "usage: transfer <account> <amount-SLG> <priority-fee-SLG>");
             return Ok(());
         }
 
@@ -20,22 +20,22 @@ impl Transfer {
         if target_account.id() == account.id() {
             return Err("Cannot transfer to the same account".into());
         }
-        let amount_sompi = try_parse_required_nonzero_kaspa_as_sompi_u64(argv.get(1))?;
+        let amount_san = try_parse_required_nonzero_slg_as_san_u64(argv.get(1))?;
         // TODO fee_rate
         let fee_rate = None;
-        let priority_fee_sompi = try_parse_optional_kaspa_as_sompi_i64(argv.get(2))?.unwrap_or(0);
+        let priority_fee_san = try_parse_optional_slg_as_san_i64(argv.get(2))?.unwrap_or(0);
         let target_address = target_account.receive_address()?;
         let (wallet_secret, payment_secret) = ctx.ask_wallet_secret(Some(&account)).await?;
 
         let abortable = Abortable::default();
-        let outputs = PaymentOutputs::from((target_address.clone(), amount_sompi));
+        let outputs = PaymentOutputs::from((target_address.clone(), amount_san));
 
         // let ctx_ = ctx.clone();
         let (summary, _ids) = account
             .send(
                 outputs.into(),
                 fee_rate,
-                priority_fee_sompi.into(),
+                priority_fee_san.into(),
                 None,
                 wallet_secret,
                 payment_secret,

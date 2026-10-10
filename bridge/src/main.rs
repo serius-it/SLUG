@@ -313,7 +313,7 @@ async fn main() -> Result<(), anyhow::Error> {
             let mining_address = cli
                 .internal_cpu_miner_address
                 .clone()
-                .ok_or_else(|| anyhow::anyhow!("--internal-cpu-miner requires --internal-cpu-miner-address <kaspa:...>"))?;
+                .ok_or_else(|| anyhow::anyhow!("--internal-cpu-miner requires --internal-cpu-miner-address <slug:...>"))?;
 
             let threads = cli.internal_cpu_miner_threads.unwrap_or(1);
             let throttle = cli.internal_cpu_miner_throttle_ms.map(Duration::from_millis);

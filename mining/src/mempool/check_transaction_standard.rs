@@ -3,7 +3,7 @@ use crate::mempool::{
     errors::{NonStandardError, NonStandardResult},
 };
 use kaspa_consensus_core::{
-    constants::{MAX_SCRIPT_PUBLIC_KEY_VERSION, MAX_SOMPI},
+    constants::{MAX_SAN, MAX_SCRIPT_PUBLIC_KEY_VERSION},
     tx::MutableTransaction,
 };
 use kaspa_txscript::{p2sh_sig_scanner, script_class::ScriptClass};
@@ -92,8 +92,8 @@ impl Mempool {
     fn minimum_required_transaction_relay_fee(&self, mass: u64, minimum_relay_transaction_fee: u64) -> u64 {
         // Calculate the minimum fee for a transaction to be allowed into the
         // mempool and relayed by scaling the base fee. MinimumRelayTransactionFee is in
-        // sompi/kg so multiply by mass (which is in grams) and divide by 1000 to get
-        // minimum sompis.
+        // san/kg so multiply by mass (which is in grams) and divide by 1000 to get
+        // minimum sans.
         let mut minimum_fee = mass.saturating_mul(minimum_relay_transaction_fee) / 1000; // If we overflow it means the mass is too high, and the tx will be rejected later.
         if minimum_fee == 0 {
             minimum_fee = minimum_relay_transaction_fee;
@@ -101,7 +101,7 @@ impl Mempool {
 
         // Set the minimum fee to the maximum possible value if the calculated
         // fee is not in the valid range for monetary amounts.
-        minimum_fee.min(MAX_SOMPI)
+        minimum_fee.min(MAX_SAN)
     }
 }
 
@@ -116,7 +116,7 @@ mod tests {
     use kaspa_addresses::{Address, Prefix, Version};
     use kaspa_consensus_core::{
         config::params::Params,
-        constants::{MAX_TX_IN_SEQUENCE_NUM, SOMPI_PER_KASPA, TRANSIENT_BYTE_TO_MASS_FACTOR, TX_VERSION},
+        constants::{MAX_TX_IN_SEQUENCE_NUM, SAN_PER_SLG, TRANSIENT_BYTE_TO_MASS_FACTOR, TX_VERSION},
         mass::NonContextualMasses,
         network::NetworkType,
         subnets::SUBNETWORK_ID_NATIVE,
@@ -199,7 +199,7 @@ mod tests {
 
         let addr = Address::new(Prefix::Testnet, Version::PubKey, &addr_hash);
         let dummy_script_public_key = kaspa_txscript::pay_to_address_script(&addr);
-        let dummy_tx_out = TransactionOutput::new(SOMPI_PER_KASPA, dummy_script_public_key);
+        let dummy_tx_out = TransactionOutput::new(SAN_PER_SLG, dummy_script_public_key);
 
         struct Test {
             name: &'static str,
@@ -253,7 +253,7 @@ mod tests {
                         TX_VERSION,
                         vec![dummy_tx_input.clone()],
                         vec![TransactionOutput::new(
-                            SOMPI_PER_KASPA,
+                            SAN_PER_SLG,
                             ScriptPublicKey::new(
                                 MAX_SCRIPT_PUBLIC_KEY_VERSION,
                                 ScriptBuilder::new().add_op(OpTrue).unwrap().script().into(),
@@ -275,7 +275,7 @@ mod tests {
                         TX_VERSION,
                         vec![dummy_tx_input],
                         vec![TransactionOutput::new(
-                            SOMPI_PER_KASPA,
+                            SAN_PER_SLG,
                             ScriptPublicKey::new(
                                 MAX_SCRIPT_PUBLIC_KEY_VERSION,
                                 ScriptBuilder::new().add_op(OpReturn).unwrap().script().into(),
@@ -348,16 +348,14 @@ mod tests {
             let tx = Transaction::new(
                 TX_VERSION,
                 vec![input],
-                vec![TransactionOutput::new(SOMPI_PER_KASPA, script_public_key.clone())],
+                vec![TransactionOutput::new(SAN_PER_SLG, script_public_key.clone())],
                 0,
                 SUBNETWORK_ID_NATIVE,
                 0,
                 vec![],
             );
-            let mut mtx = MutableTransaction::with_entries(
-                tx.into(),
-                vec![UtxoEntry::new(2 * SOMPI_PER_KASPA, script_public_key, 0, false, None)],
-            );
+            let mut mtx =
+                MutableTransaction::with_entries(tx.into(), vec![UtxoEntry::new(2 * SAN_PER_SLG, script_public_key, 0, false, None)]);
             mtx.calculated_non_contextual_masses = Some(masses);
             mtx.calculated_fee = Some(fee);
             mtx

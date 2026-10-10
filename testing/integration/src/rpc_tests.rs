@@ -5,7 +5,7 @@ use futures_util::future::try_join_all;
 use kaspa_addresses::{Address, Prefix, Version};
 use kaspa_consensus::params::SIMNET_GENESIS;
 use kaspa_consensus_core::{
-    constants::MAX_SOMPI,
+    constants::MAX_SAN,
     header::Header,
     subnets::{SUBNETWORK_ID_COINBASE, SubnetworkId},
     tx::Transaction,
@@ -522,8 +522,8 @@ async fn sanity_test() {
                 let rpc_client = client.clone();
                 tst!(op, {
                     let response = rpc_client.get_coin_supply_call(None, GetCoinSupplyRequest {}).await.unwrap();
-                    assert_eq!(response.circulating_sompi, 0);
-                    assert_eq!(response.max_sompi, MAX_SOMPI);
+                    assert_eq!(response.circulating_san, 0);
+                    assert_eq!(response.max_san, MAX_SAN);
                 })
             }
 

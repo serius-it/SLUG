@@ -9,7 +9,7 @@ const {
     Generator,
     UtxoProcessor,
     UtxoContext,
-    kaspaToSompi,
+    slgToSan,
     createTransactions,
     initConsolePanicHook
 } = require('../../../../nodejs/kaspa');
@@ -66,13 +66,13 @@ const { encoding, networkId, address : destinationAddress } = require("../utils"
     await context.trackAddresses([sourceAddress]);
 
     // 7) Check balance, if there are enough funds, send a transaction
-    if (context.balance.mature > kaspaToSompi(0.2) + 1000n) {
+    if (context.balance.mature > slgToSan("0.2") + 1000n) {
         console.log("Sending transaction");
 
         let generator = new Generator({
             entries : context,
-            outputs: [{address, amount : kaspaToSompi(0.2)}],
-            priorityFee: kaspaToSompi(0.0001),
+            outputs: [{address, amount : slgToSan("0.2")}],
+            priorityFee: slgToSan("0.0001"),
             changeAddress: sourceAddress,
         });
 

@@ -1,4 +1,4 @@
-// Example of simple client to connect with Kaspa node using wRPC connection and collect some node and network basic data
+// Example of a SLUG client using a directly configured wRPC endpoint.
 
 use kaspa_rpc_core::{GetBlockDagInfoResponse, GetServerInfoResponse, api::rpc::RpcApi};
 use kaspa_wrpc_client::{
@@ -14,7 +14,7 @@ use std::time::Duration;
 async fn main() -> ExitCode {
     match check_node_status().await {
         Ok(_) => {
-            println!("Well done! You successfully completed your first client connection to Kaspa node!");
+            println!("Connected to a SLUG node.");
             ExitCode::SUCCESS
         }
         Err(error) => {
@@ -28,13 +28,10 @@ async fn check_node_status() -> Result<()> {
     // Select encoding method to use, depending on node settings
     let encoding = WrpcEncoding::Borsh;
 
-    // If you want to connect to your own node, define your node address and wRPC port using let url = Some("ws://0.0.0.0:17110")
-    // Verify your Kaspa node is runnning with --rpclisten-borsh=0.0.0.0:17110 parameter
-    // In this example we don't use a specific node but we connect through the resolver, which use a pool of public nodes
-    let url = None;
-    let resolver = Some(Resolver::default());
+    let url = Some("ws://127.0.0.1:19112");
+    let resolver = None;
 
-    // Define the network your Kaspa node is connected to
+    // Define the SLUG network your node is connected to
     // You can select NetworkType::Mainnet, NetworkType::Testnet, NetworkType::Devnet, NetworkType::Simnet
     let network_type = NetworkType::Mainnet;
     let selected_network = Some(NetworkId::new(network_type));
@@ -54,10 +51,10 @@ async fn check_node_status() -> Result<()> {
         ..Default::default()
     };
 
-    // Connect to selected Kaspa node
+    // Connect to the explicitly configured SLUG node
     client.connect(Some(options)).await?;
 
-    // Retrieve and show Kaspa node information
+    // Retrieve and show SLUG node information
     let GetServerInfoResponse { is_synced, server_version, network_id, has_utxo_index, .. } = client.get_server_info().await?;
 
     println!("Node version: {server_version}");
@@ -65,7 +62,7 @@ async fn check_node_status() -> Result<()> {
     println!("Node is synced: {is_synced}");
     println!("Node is indexing UTXOs: {has_utxo_index}");
 
-    // Retrieve and show Kaspa network information
+    // Retrieve and show SLUG network information
     let GetBlockDagInfoResponse {
         block_count,
         header_count,

@@ -10,6 +10,7 @@ use kaspa_consensus_core::{
     constants::BLOCK_VERSION,
     tx::{ScriptPublicKey, ScriptVec, Transaction},
 };
+use kaspa_database::{prelude::ConnBuilder, utils::get_kaspa_tempdir};
 use kaspa_hashes::Hash;
 use std::{collections::VecDeque, thread::JoinHandle};
 
@@ -210,6 +211,103 @@ async fn antichain_merge_test() {
         ctx.build_block_template_row(0..1).validate_and_insert_row().await.assert_valid_utxo_tip();
     }
     ctx.assert_tips_num(1);
+}
+
+#[tokio::test]
+async fn cumulative_subsidy_tracks_branch_switches_and_dag_merges() {
+    async fn insert_test_block(ctx: &mut TestContext, mut block: MutableBlock) -> Hash {
+        ctx.simulated_time += ctx.consensus.params().target_time_per_block();
+        block.header.timestamp = ctx.simulated_time;
+        block.header.finalize();
+        let hash = block.header.hash;
+        ctx.validate_and_insert_block(block.to_immutable()).await;
+        hash
+    }
+
+    let config = ConfigBuilder::new(MAINNET_PARAMS)
+        .skip_proof_of_work()
+        .edit_consensus_params(|p| {
+            p.max_block_parents = 4;
+            p.mergeset_size_limit = 10;
+        })
+        .build();
+    let mut ctx = TestContext::new(TestConsensus::new(&config));
+    let genesis = config.genesis.hash;
+    let miner_data = ctx.miner_data.clone();
+
+    let branch_a1 = ctx.consensus.build_utxo_valid_block_with_parents(1.into(), vec![genesis], miner_data.clone(), vec![]);
+    let branch_a1_hash = insert_test_block(&mut ctx, branch_a1).await;
+    let branch_a2 = ctx.consensus.build_utxo_valid_block_with_parents(2.into(), vec![branch_a1_hash], miner_data.clone(), vec![]);
+    let branch_a2_hash = insert_test_block(&mut ctx, branch_a2).await;
+    let branch_a2_cumulative =
+        u64::from_le_bytes(ctx.consensus.get_block_transactions(branch_a2_hash, None).unwrap()[0].payload[16..24].try_into().unwrap());
+    assert_eq!(branch_a2_cumulative, 10_000_000);
+
+    let branch_b1 = ctx.consensus.build_utxo_valid_block_with_parents(3.into(), vec![genesis], miner_data.clone(), vec![]);
+    let branch_b1_hash = insert_test_block(&mut ctx, branch_b1).await;
+    let branch_b2 = ctx.consensus.build_utxo_valid_block_with_parents(4.into(), vec![branch_b1_hash], miner_data.clone(), vec![]);
+    let branch_b2_hash = insert_test_block(&mut ctx, branch_b2).await;
+    let branch_b3 = ctx.consensus.build_utxo_valid_block_with_parents(5.into(), vec![branch_b2_hash], miner_data, vec![]);
+    let branch_b3_hash = insert_test_block(&mut ctx, branch_b3).await;
+    assert_eq!(ctx.consensus.get_sink(), branch_b3_hash, "the longer branch should replace branch A as the selected chain");
+
+    let mut pre_merge_issuance = 0u64;
+    for hash in [branch_a1_hash, branch_a2_hash, branch_b1_hash, branch_b2_hash, branch_b3_hash] {
+        let transactions = ctx.consensus.get_block_transactions(hash, None).unwrap();
+        let subsidy = u64::from_le_bytes(transactions[0].payload[8..16].try_into().unwrap());
+        pre_merge_issuance = pre_merge_issuance.checked_add(subsidy).unwrap();
+    }
+
+    ctx.build_block_template_row(0..1);
+    let merge_block = ctx.current_templates.pop_front().unwrap().block;
+    assert!(merge_block.header.direct_parents().contains(&branch_a2_hash));
+    assert!(merge_block.header.direct_parents().contains(&branch_b3_hash));
+    let merge_coinbase = &merge_block.transactions[0];
+    let merge_subsidy = u64::from_le_bytes(merge_coinbase.payload[8..16].try_into().unwrap());
+    let merge_cumulative = u64::from_le_bytes(merge_coinbase.payload[16..24].try_into().unwrap());
+    assert_eq!(merge_cumulative, pre_merge_issuance.checked_add(merge_subsidy).unwrap());
+
+    ctx.validate_and_insert_block(merge_block.to_immutable()).await;
+}
+
+#[tokio::test]
+async fn cumulative_subsidy_survives_pruning_and_database_recovery() {
+    let config = ConfigBuilder::new(MAINNET_PARAMS)
+        .skip_proof_of_work()
+        .edit_consensus_params(|p| {
+            p.finality_depth = 8;
+            p.pruning_depth = 20;
+            p.pruning_proof_m = 2;
+        })
+        .build();
+    let tempdir = get_kaspa_tempdir();
+    let db_path = tempdir.path().to_owned();
+    let db = ConnBuilder::default().with_db_path(db_path.clone()).with_files_limit(10).build().unwrap();
+    let (notification_sender, _) = async_channel::unbounded();
+    let mut ctx = TestContext::new(TestConsensus::with_db(db.clone(), &config, notification_sender));
+
+    for _ in 0..80 {
+        ctx.build_block_template_row(0..1).validate_and_insert_row().await;
+    }
+
+    let tip = ctx.consensus.get_sink();
+    assert_ne!(ctx.consensus.pruning_point(), config.genesis.hash, "the test chain must advance its pruning point");
+    let transactions = ctx.consensus.get_block_transactions(tip, None).unwrap();
+    let tip_cumulative = u64::from_le_bytes(transactions[0].payload[16..24].try_into().unwrap());
+    drop(ctx);
+    drop(db);
+
+    let db = ConnBuilder::default().with_db_path(db_path).with_create_if_missing(false).with_files_limit(10).build().unwrap();
+    let (notification_sender, _) = async_channel::unbounded();
+    let mut recovery_config = config.clone();
+    recovery_config.process_genesis = false;
+    let mut recovered = TestContext::new(TestConsensus::with_db(db.clone(), &recovery_config, notification_sender));
+    assert_eq!(recovered.consensus.get_sink(), tip, "recovery must restore the selected chain");
+    recovered.build_block_template_row(0..1);
+    let next_block = recovered.current_templates.pop_front().unwrap().block;
+    let next_subsidy = u64::from_le_bytes(next_block.transactions[0].payload[8..16].try_into().unwrap());
+    let next_cumulative = u64::from_le_bytes(next_block.transactions[0].payload[16..24].try_into().unwrap());
+    assert_eq!(next_cumulative, tip_cumulative.checked_add(next_subsidy).unwrap());
 }
 
 #[tokio::test]

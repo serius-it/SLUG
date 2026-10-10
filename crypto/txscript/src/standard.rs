@@ -112,7 +112,7 @@ pub mod test_helpers {
 
     /// Creates a transaction that spends the first output of provided transaction.
     /// Assumes that the output being spent has opTrueScript as its scriptPublicKey.
-    /// Creates the value of the spent output minus provided `fee` (in sompi).
+    /// Creates the value of the spent output minus provided `fee` (in san).
     pub fn create_transaction(tx_to_spend: &Transaction, fee: u64) -> Transaction {
         let (script_public_key, redeem_script) = op_true_script();
         let signature_script = pay_to_script_hash_signature_script(redeem_script, vec![]).expect("the script is canonical");
@@ -126,9 +126,9 @@ pub mod test_helpers {
     /// Assumes that the outputs being spent have opTrueScript as their scriptPublicKey.
     ///
     /// If some change is provided, creates two outputs, first one with the value of the spent outputs minus `change`
-    /// and `fee` (in sompi) and second one of `change` amount.
+    /// and `fee` (in san) and second one of `change` amount.
     ///
-    /// If no change is provided, creates only one output with the value of the spent outputs minus and `fee` (in sompi)
+    /// If no change is provided, creates only one output with the value of the spent outputs minus and `fee` (in san)
     pub fn create_transaction_with_change<'a>(
         txs_to_spend: impl Iterator<Item = &'a Transaction>,
         output_indexes: Vec<usize>,
@@ -182,7 +182,7 @@ mod tests {
                     ScriptVec::from_hex("207bc04196f1125e4f2676cd09ed14afb77223b1f62177da5488346323eaa91a69ac").unwrap(),
                 ),
                 prefix: Prefix::Mainnet,
-                expected_address: Ok("kaspa:qpauqsvk7yf9unexwmxsnmg547mhyga37csh0kj53q6xxgl24ydxjsgzthw5j".try_into().unwrap()),
+                expected_address: Ok("slug:qpauqsvk7yf9unexwmxsnmg547mhyga37csh0kj53q6xxgl24ydxjhvqajcc5".try_into().unwrap()),
             },
             Test {
                 name: "Testnet PubKeyECDSA script and address",
@@ -191,7 +191,7 @@ mod tests {
                     ScriptVec::from_hex("21ba01fc5f4e9d9879599c69a3dafdb835a7255e5f2e934e9322ecd3af190ab0f60eab").unwrap(),
                 ),
                 prefix: Prefix::Testnet,
-                expected_address: Ok("kaspatest:qxaqrlzlf6wes72en3568khahq66wf27tuhfxn5nytkd8tcep2c0vrse6gdmpks".try_into().unwrap()),
+                expected_address: Ok("slugtest:qxaqrlzlf6wes72en3568khahq66wf27tuhfxn5nytkd8tcep2c0vrs6l7uj9uh".try_into().unwrap()),
             },
             Test {
                 name: "Testnet non standard script",

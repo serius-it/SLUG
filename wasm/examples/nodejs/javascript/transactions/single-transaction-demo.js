@@ -8,13 +8,13 @@ const {
     createTransaction,
     signTransaction,
     initConsolePanicHook,
-    Resolver,
 } = require('../../../../nodejs/kaspa');
 
 initConsolePanicHook();
 
 // command line arguments --network=(mainnet|testnet-<number>) --encoding=borsh (default)
 const { networkId, encoding } = require("../utils").parseArgs();
+const { rpcUrl } = require("../utils");
 
 (async () => {
 
@@ -27,14 +27,13 @@ const { networkId, encoding } = require("../utils").parseArgs();
     // For example 02dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659
     console.info(keypair.publicKey);
 
-    // An address such as kaspa:qr0lr4ml9fn3chekrqmjdkergxl93l4wrk3dankcgvjq776s9wn9jkdskewva
+    // An address such as slug:qr0lr4ml9fn3chekrqmjdkergxl93l4wrk3dankcgvjq776s9wn9j3fjqucqm
     const address = keypair.toAddress(networkId);
     console.info(`Full kaspa address: ${address}`);
     console.info(address);
 
     const rpc = new RpcClient({
-        //url : "127.0.0.1",
-        resolver: new Resolver(),
+        url: rpcUrl(networkId),
         encoding,
         networkId
     });

@@ -6,7 +6,7 @@
 //!
 //! The suffix is used to differentiate between multiple networks of the same type and is used
 //! explicitly with `testnet` networks, allowing declaration of testnet versions such as
-//! `testnet-10`, `testnet-11`, etc.
+//! `testnet-1`.
 //!
 
 #![allow(non_snake_case)]
@@ -41,28 +41,28 @@ pub enum NetworkType {
 impl NetworkType {
     pub fn default_rpc_port(&self) -> u16 {
         match self {
-            NetworkType::Mainnet => 16110,
-            NetworkType::Testnet => 16210,
-            NetworkType::Simnet => 16510,
-            NetworkType::Devnet => 16610,
+            NetworkType::Mainnet => 19110,
+            NetworkType::Testnet => 19210,
+            NetworkType::Devnet => 19310,
+            NetworkType::Simnet => 19410,
         }
     }
 
     pub fn default_borsh_rpc_port(&self) -> u16 {
         match self {
-            NetworkType::Mainnet => 17110,
-            NetworkType::Testnet => 17210,
-            NetworkType::Simnet => 17510,
-            NetworkType::Devnet => 17610,
+            NetworkType::Mainnet => 19112,
+            NetworkType::Testnet => 19212,
+            NetworkType::Devnet => 19312,
+            NetworkType::Simnet => 19412,
         }
     }
 
     pub fn default_json_rpc_port(&self) -> u16 {
         match self {
-            NetworkType::Mainnet => 18110,
-            NetworkType::Testnet => 18210,
-            NetworkType::Simnet => 18510,
-            NetworkType::Devnet => 18610,
+            NetworkType::Mainnet => 19113,
+            NetworkType::Testnet => 19213,
+            NetworkType::Devnet => 19313,
+            NetworkType::Simnet => 19413,
         }
     }
 
@@ -156,7 +156,7 @@ impl TryFrom<&NetworkTypeT> for Prefix {
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum NetworkIdError {
-    #[error("Invalid network name prefix: {0}. The expected prefix is 'kaspa'.")]
+    #[error("Invalid network name prefix: {0}. The expected prefix is 'slug'.")]
     InvalidPrefix(String),
 
     #[error(transparent)]
@@ -188,7 +188,7 @@ impl From<NetworkIdError> for JsValue {
 }
 
 ///
-/// NetworkId is a unique identifier for a kaspa network instance.
+/// NetworkId is a unique identifier for a SLUG network instance.
 /// It is composed of a network type and an optional suffix.
 ///
 /// @category Consensus
@@ -236,39 +236,31 @@ impl NetworkId {
     }
 
     pub fn default_p2p_port(&self) -> u16 {
-        // We define the P2P port on the [`networkId`] type in order to adapt testnet ports according to testnet suffix,
-        // hence avoiding repeatedly failing P2P handshakes between nodes on different networks. RPC does not have
-        // this reasoning so we keep it on the same port in order to simplify RPC client management (hence [`default_rpc_port`]
-        // is defined on the [`NetworkType`] struct
         match self.network_type {
-            NetworkType::Mainnet => 16111,
-            NetworkType::Testnet => match self.suffix {
-                Some(10) => 16211,
-                Some(12) => 16311,
-                None | Some(_) => 16411,
-            },
-            NetworkType::Simnet => 16511,
-            NetworkType::Devnet => 16611,
+            NetworkType::Mainnet => 19111,
+            NetworkType::Testnet => 19211,
+            NetworkType::Devnet => 19311,
+            NetworkType::Simnet => 19411,
         }
     }
 
     pub fn iter() -> impl Iterator<Item = Self> {
         static NETWORK_IDS: [NetworkId; 4] = [
             NetworkId::new(NetworkType::Mainnet),
-            NetworkId::with_suffix(NetworkType::Testnet, 10),
+            NetworkId::with_suffix(NetworkType::Testnet, 1),
             NetworkId::new(NetworkType::Devnet),
             NetworkId::new(NetworkType::Simnet),
         ];
         NETWORK_IDS.iter().copied()
     }
 
-    /// Returns a textual description of the network prefixed with `kaspa-`
+    /// Returns a textual description of the network prefixed with `slug-`
     pub fn to_prefixed(&self) -> String {
-        format!("kaspa-{}", self)
+        format!("slug-{}", self)
     }
 
     pub fn from_prefixed(prefixed: &str) -> Result<Self, NetworkIdError> {
-        if let Some(stripped) = prefixed.strip_prefix("kaspa-") {
+        if let Some(stripped) = prefixed.strip_prefix("slug-") {
             Self::from_str(stripped)
         } else {
             Err(NetworkIdError::InvalidPrefix(prefixed.to_string()))
@@ -306,6 +298,7 @@ impl From<NetworkId> for NetworkType {
 impl FromStr for NetworkId {
     type Err = NetworkIdError;
     fn from_str(network_name: &str) -> Result<Self, Self::Err> {
+        let network_name = network_name.strip_prefix("slug-").unwrap_or(network_name);
         let mut parts = network_name.split('-').fuse();
         let network_type = NetworkType::from_str(parts.next().unwrap_or_default())?;
         let suffix = parts.next().map(|x| u32::from_str(x).map_err(|_| NetworkIdError::InvalidSuffix(x.to_string()))).transpose()?;
@@ -443,6 +436,40 @@ mod tests {
     }
 
     #[test]
+    fn test_network_id_prefixed_roundtrip() {
+        let networks = [
+            (NetworkId::new(NetworkType::Mainnet), "slug-mainnet"),
+            (NetworkId::with_suffix(NetworkType::Testnet, 1), "slug-testnet-1"),
+            (NetworkId::new(NetworkType::Devnet), "slug-devnet"),
+            (NetworkId::new(NetworkType::Simnet), "slug-simnet"),
+        ];
+
+        for (network_id, expected) in networks {
+            assert_eq!(network_id.to_prefixed(), expected);
+            assert_eq!(NetworkId::from_prefixed(expected).unwrap(), network_id);
+        }
+
+        assert!(NetworkId::from_prefixed("kaspa-mainnet").is_err());
+    }
+
+    #[test]
+    fn slug_networks_use_dedicated_service_ports() {
+        let networks = [
+            (NetworkId::new(NetworkType::Mainnet), 19111, 19110, 19112, 19113),
+            (NetworkId::with_suffix(NetworkType::Testnet, 1), 19211, 19210, 19212, 19213),
+            (NetworkId::new(NetworkType::Devnet), 19311, 19310, 19312, 19313),
+            (NetworkId::new(NetworkType::Simnet), 19411, 19410, 19412, 19413),
+        ];
+
+        for (network, p2p, rpc, borsh, json) in networks {
+            assert_eq!(network.default_p2p_port(), p2p);
+            assert_eq!(network.network_type().default_rpc_port(), rpc);
+            assert_eq!(network.network_type().default_borsh_rpc_port(), borsh);
+            assert_eq!(network.network_type().default_json_rpc_port(), json);
+        }
+    }
+
+    #[test]
     fn test_network_id_parse() {
         struct Test {
             name: &'static str,
@@ -452,6 +479,12 @@ mod tests {
 
         let tests = vec![
             Test { name: "Valid mainnet", expr: "mainnet", expected: Ok(NetworkId::new(NetworkType::Mainnet)) },
+            Test { name: "Valid prefixed mainnet", expr: "slug-mainnet", expected: Ok(NetworkId::new(NetworkType::Mainnet)) },
+            Test {
+                name: "Valid prefixed testnet",
+                expr: "slug-testnet-1",
+                expected: Ok(NetworkId::with_suffix(NetworkType::Testnet, 1)),
+            },
             Test { name: "Valid testnet", expr: "testnet-88", expected: Ok(NetworkId::with_suffix(NetworkType::Testnet, 88)) },
             Test { name: "Missing network", expr: "", expected: Err(NetworkTypeError::InvalidNetworkType("".to_string()).into()) },
             Test {

@@ -1401,13 +1401,13 @@ declare! {
          */
         paymentSecret? : string;
         /**
-         * Fee rate in sompi per 1 gram of mass.
+         * Fee rate in san per 1 gram of mass.
          */
         feeRate? : number;
         /**
          * Priority fee.
          */
-        priorityFeeSompi? : IFees | bigint;
+        priorityFeeSan? : IFees | bigint;
         /**
          * 
          */
@@ -1425,14 +1425,14 @@ try_from! ( args: IAccountsSendRequest, AccountsSendRequest, {
     let wallet_secret = args.get_secret("walletSecret")?;
     let payment_secret = args.try_get_secret("paymentSecret")?;
     let fee_rate = args.get_f64("feeRate").ok();
-    let priority_fee_sompi = args.get::<IFees>("priorityFeeSompi")?.try_into()?;
+    let priority_fee_san = args.get::<IFees>("priorityFeeSan")?.try_into()?;
     let payload = args.try_get_value("payload")?.map(|v| v.try_as_vec_u8()).transpose()?;
 
     let outputs = args.get_value("destination")?;
     let destination: PaymentDestination =
         if outputs.is_undefined() { PaymentDestination::Change } else { PaymentOutputs::try_owned_from(outputs)?.into() };
 
-    Ok(AccountsSendRequest { account_id, wallet_secret, payment_secret, fee_rate, priority_fee_sompi, destination, payload })
+    Ok(AccountsSendRequest { account_id, wallet_secret, payment_secret, fee_rate, priority_fee_san, destination, payload })
 });
 
 declare! {
@@ -1658,7 +1658,7 @@ declare! {
     export interface IAccountsGetUtxosRequest {
         accountId : HexString;
         addresses : Address[] | string[];
-        minAmountSompi? : bigint;
+        minAmountSan? : bigint;
     }
     "#,
 }
@@ -1666,8 +1666,8 @@ declare! {
 try_from! ( args: IAccountsGetUtxosRequest, AccountsGetUtxosRequest, {
     let account_id = args.get_account_id("accountId")?;
     let addresses = args.try_get_addresses("addresses")?;
-    let min_amount_sompi = args.get_u64("minAmountSompi").ok();
-    Ok(AccountsGetUtxosRequest { account_id, addresses, min_amount_sompi })
+    let min_amount_san = args.get_u64("minAmountSan").ok();
+    Ok(AccountsGetUtxosRequest { account_id, addresses, min_amount_san })
 });
 
 declare! {
@@ -1710,8 +1710,8 @@ declare! {
         walletSecret : string;
         paymentSecret? : string;
         feeRate? : number;
-        priorityFeeSompi? : IFees | bigint;
-        transferAmountSompi : bigint;
+        priorityFeeSan? : IFees | bigint;
+        transferAmountSan : bigint;
     }
     "#,
 }
@@ -1722,8 +1722,8 @@ try_from! ( args: IAccountsTransferRequest, AccountsTransferRequest, {
     let wallet_secret = args.get_secret("walletSecret")?;
     let payment_secret = args.try_get_secret("paymentSecret")?;
     let fee_rate = args.get_f64("feeRate").ok();
-    let priority_fee_sompi = args.try_get::<IFees>("priorityFeeSompi")?.map(Fees::try_from).transpose()?;
-    let transfer_amount_sompi = args.get_u64("transferAmountSompi")?;
+    let priority_fee_san = args.try_get::<IFees>("priorityFeeSan")?.map(Fees::try_from).transpose()?;
+    let transfer_amount_san = args.get_u64("transferAmountSan")?;
 
     Ok(AccountsTransferRequest {
         source_account_id,
@@ -1731,8 +1731,8 @@ try_from! ( args: IAccountsTransferRequest, AccountsTransferRequest, {
         wallet_secret,
         payment_secret,
         fee_rate,
-        priority_fee_sompi,
-        transfer_amount_sompi,
+        priority_fee_san,
+        transfer_amount_san,
     })
 });
 
@@ -1772,7 +1772,7 @@ declare! {
         accountId : HexString;
         destination : IPaymentOutput[];
         feeRate? : number;
-        priorityFeeSompi : IFees | bigint;
+        priorityFeeSan : IFees | bigint;
         payload? : Uint8Array | string;
     }
     "#,
@@ -1781,14 +1781,14 @@ declare! {
 try_from! ( args: IAccountsEstimateRequest, AccountsEstimateRequest, {
     let account_id = args.get_account_id("accountId")?;
     let fee_rate = args.get_f64("feeRate").ok();
-    let priority_fee_sompi = args.get::<IFees>("priorityFeeSompi")?.try_into()?;
+    let priority_fee_san = args.get::<IFees>("priorityFeeSan")?.try_into()?;
     let payload = args.try_get_value("payload")?.map(|v| v.try_as_vec_u8()).transpose()?;
 
     let outputs = args.get_value("destination")?;
     let destination: PaymentDestination =
         if outputs.is_undefined() { PaymentDestination::Change } else { PaymentOutputs::try_owned_from(outputs)?.into() };
 
-    Ok(AccountsEstimateRequest { account_id, fee_rate, priority_fee_sompi, destination, payload })
+    Ok(AccountsEstimateRequest { account_id, fee_rate, priority_fee_san, destination, payload })
 });
 
 declare! {
@@ -2172,7 +2172,7 @@ declare! {
      * 
      * The selected address will also be used to spend reveal transaction to.
      * 
-     * The default revealFeeSompi is 100_000 sompi.
+     * The default revealFeeSan is 100_000 san.
      *  
      * @category Wallet API
      */
@@ -2182,10 +2182,10 @@ declare! {
         addressIndex : number;
         scriptSig : Uint8Array | HexString;
         walletSecret : string;
-        commitAmountSompi : bigint;
+        commitAmountSan : bigint;
         paymentSecret? : string;
         feeRate? : number;
-        revealFeeSompi : bigint;
+        revealFeeSan : bigint;
         payload? : Uint8Array | HexString;
     }
     "#,
@@ -2205,10 +2205,10 @@ try_from! ( args: IAccountsCommitRevealRequest, AccountsCommitRevealRequest, {
     let script_sig = args.get_vec_u8("scriptSig")?;
     let wallet_secret = args.get_secret("walletSecret")?;
     let payment_secret = args.try_get_secret("paymentSecret")?;
-    let commit_amount_sompi = args.get_u64("commitAmountSompi")?;
+    let commit_amount_san = args.get_u64("commitAmountSan")?;
     let fee_rate = args.get_f64("feeRate").ok();
 
-    let reveal_fee_sompi = args.get_u64("revealFeeSompi")?;
+    let reveal_fee_san = args.get_u64("revealFeeSan")?;
 
     let payload = args.try_get_value("payload")?.map(|v| v.try_as_vec_u8()).transpose()?;
 
@@ -2219,9 +2219,9 @@ try_from! ( args: IAccountsCommitRevealRequest, AccountsCommitRevealRequest, {
         script_sig,
         wallet_secret,
         payment_secret,
-        commit_amount_sompi,
+        commit_amount_san,
         fee_rate,
-        reveal_fee_sompi,
+        reveal_fee_san,
         payload,
     })
 });
@@ -2261,10 +2261,10 @@ declare! {
      * The scriptSig will be used to spend the UTXO of the first transaction and
      * must therefore match the startDestination output P2SH.
      * 
-     * Set revealFeeSompi or reflect the reveal fee transaction on endDestination
+     * Set revealFeeSan or reflect the reveal fee transaction on endDestination
      * output amount. 
      * 
-     * The default revealFeeSompi is 100_000 sompi.
+     * The default revealFeeSan is 100_000 san.
      * 
      * @category Wallet API
      */
@@ -2276,7 +2276,7 @@ declare! {
         walletSecret : string;
         paymentSecret? : string;
         feeRate? : number;
-        revealFeeSompi : bigint;
+        revealFeeSan : bigint;
         payload? : Uint8Array | HexString;
     }
     "#,
@@ -2297,7 +2297,7 @@ try_from! ( args: IAccountsCommitRevealManualRequest, AccountsCommitRevealManual
     if reveal_output.is_undefined() { PaymentDestination::Change } else { PaymentOutputs::try_owned_from(reveal_output)?.into() };
 
     let fee_rate = args.get_f64("feeRate").ok();
-    let reveal_fee_sompi = args.get_u64("revealFeeSompi")?;
+    let reveal_fee_san = args.get_u64("revealFeeSan")?;
 
     let payload = args.try_get_value("payload")?.map(|v| v.try_as_vec_u8()).transpose()?;
 
@@ -2309,7 +2309,7 @@ try_from! ( args: IAccountsCommitRevealManualRequest, AccountsCommitRevealManual
         start_destination,
         end_destination,
         fee_rate,
-        reveal_fee_sompi,
+        reveal_fee_san,
         payload,
     })
 });

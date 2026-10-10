@@ -1,4 +1,4 @@
-// Basic example of a Kaspa wRPC client that connects to a node
+// Basic example of a SLUG wRPC client that connects to a node
 // and subscribes to notifications. This example demonstrates
 // how to handle RPC connection events, perform subscriptions,
 // handle subscription notifications etc.
@@ -13,7 +13,7 @@ use workflow_core::channel::{Channel, DuplexChannel, oneshot};
 use workflow_core::task::spawn;
 use workflow_log::prelude::*;
 
-// Kaspa RPC primitives
+// RPC primitives
 use kaspa_wrpc_client::prelude::*;
 // reuse wRPC Result type for convenience
 use kaspa_wrpc_client::result::Result;
@@ -46,12 +46,10 @@ pub struct Listener {
 
 impl Listener {
     pub fn try_new(network_id: NetworkId, url: Option<String>) -> Result<Self> {
-        // if not url is supplied we use the default resolver to
-        // obtain the public node rpc endpoint
-        let (resolver, url) = if let Some(url) = url { (None, Some(url)) } else { (Some(Resolver::default()), None) };
+        let url = url.ok_or_else(|| "an explicit SLUG wRPC endpoint is required".to_string())?;
 
-        // Create a basic Kaspa RPC client instance using Borsh encoding.
-        let client = Arc::new(KaspaRpcClient::new_with_args(WrpcEncoding::Borsh, url.as_deref(), resolver, Some(network_id), None)?);
+        // Create a basic SLUG RPC client instance using Borsh encoding.
+        let client = Arc::new(KaspaRpcClient::new_with_args(WrpcEncoding::Borsh, Some(&url), None, Some(network_id), None)?);
 
         let inner = Inner {
             task_ctl: DuplexChannel::oneshot(),
@@ -268,7 +266,7 @@ impl Listener {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let listener = Listener::try_new(NetworkId::new(NetworkType::Mainnet), None)?;
+    let listener = Listener::try_new(NetworkId::new(NetworkType::Mainnet), Some("ws://127.0.0.1:19112".to_string()))?;
 
     let (shutdown_sender, shutdown_receiver) = oneshot::<()>();
 

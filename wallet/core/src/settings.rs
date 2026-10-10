@@ -17,18 +17,18 @@ use workflow_store::fs;
 #[derive(Describe, Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[serde(rename_all = "lowercase")]
 pub enum WalletSettings {
-    #[describe("Network type (mainnet|testnet-10|testnet-11)")]
+    #[describe("Network type (slug-mainnet|slug-testnet-1|slug-devnet|slug-simnet)")]
     Network,
     #[describe("Server address (default: 127.0.0.1)")]
     Server,
-    #[describe("Wallet storage or file name (default 'kaspa')")]
+    #[describe("Wallet storage or file name (default 'slug')")]
     Wallet,
 }
 
 #[async_trait]
 impl DefaultSettings for WalletSettings {
     async fn defaults() -> Vec<(Self, Value)> {
-        vec![(Self::Server, to_value("public").unwrap()), (Self::Wallet, to_value("kaspa").unwrap())]
+        vec![(Self::Wallet, to_value("slug").unwrap())]
     }
 }
 
@@ -173,15 +173,25 @@ where
     }
 }
 
-/// Returns the wallet data storage folder `~/.kaspa`.
+/// Returns the wallet data storage folder `~/.slug`.
 pub fn application_folder() -> Result<PathBuf> {
     Ok(fs::resolve_path(storage::local::default_storage_folder())?)
 }
 
-/// If missing, creates the wallet data storage folder `~/.kaspa`.
+/// If missing, creates the wallet data storage folder `~/.slug`.
 pub async fn ensure_application_folder() -> Result<()> {
     let path = application_folder()?;
     log_info!("Creating application folder: `{}`", path.display());
     fs::create_dir_all(&path).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn default_wallet_settings_do_not_select_a_public_server() {
+        assert!(!WalletSettings::defaults().await.iter().any(|(key, _)| key == &WalletSettings::Server));
+    }
 }

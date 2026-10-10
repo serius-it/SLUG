@@ -3,11 +3,11 @@
     <head>
         <link rel="stylesheet" href="./resources/style.css">
         <script type="module">
-            import { log, logToId, randomId, stringify, currentNetwork, disconnectHandler } from './resources/utils.js';
+            import { log, logToId, randomId, stringify, currentNetwork, rpcUrl, disconnectHandler } from './resources/utils.js';
 
             // import WASM32 SDK
             import * as kaspa from '../../web/kaspa-rpc/kaspa.js';
-            let { Resolver, RpcClient, Encoding } = kaspa;
+            let { RpcClient } = kaspa;
 
             (async () => {
                 // load WASM32 SDK binaries 
@@ -16,11 +16,11 @@
                 // try {
                     
                     let networkId = currentNetwork();
-                    log(`Connecting to Kaspa network...`);
+                    log(`Connecting to SLUG network...`);
                     log(`Selected network is ${networkId.class("network")}...`);
                     
                     const rpc = new RpcClient({
-                        resolver : new Resolver(),
+                        url: rpcUrl(networkId),
                         networkId,
                     });
                     
@@ -42,7 +42,7 @@
                         console.log("Disconnect",event);
                     });
 
-                    log("Connecting to public node...");
+                    log("Connecting to the configured local SLUG node...");
                     await rpc.connect();
 
                     disconnectHandler(rpc);

@@ -91,7 +91,7 @@ impl Signature {
 ///
 /// A Partially Signed Kaspa Transaction (PSKT) is a standardized format
 /// that allows multiple participants to collaborate in creating and signing
-/// a Kaspa transaction. PSKT enables the exchange of incomplete transaction
+/// an SLG transaction. PSKT enables the exchange of incomplete transaction
 /// data between different wallets or entities, allowing each participant
 /// to add their signature or inputs in stages. This facilitates more complex
 /// transaction workflows, such as multi-signature setups or hardware wallet

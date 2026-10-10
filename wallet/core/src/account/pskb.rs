@@ -420,7 +420,7 @@ pub fn pskt_to_pending_transaction(
 // different parameters sets.
 pub enum CommitRevealBatchKind {
     Manual { hop_payment: PaymentDestination, destination_payment: PaymentDestination },
-    Parameterized { address: Address, commit_amount_sompi: u64 },
+    Parameterized { address: Address, commit_amount_san: u64 },
 }
 
 struct BundleCommitRevealConfig {
@@ -434,7 +434,7 @@ struct BundleCommitRevealConfig {
 // Create signed atomic commit reveal PSKB.
 pub async fn commit_reveal_batch_bundle(
     batch_config: CommitRevealBatchKind,
-    reveal_fee_sompi: u64,
+    reveal_fee_san: u64,
     script_sig: Vec<u8>,
     payload: Option<Vec<u8>>,
     fee_rate: Option<f64>,
@@ -470,18 +470,18 @@ pub async fn commit_reveal_batch_bundle(
                 payment_outputs,
             }
         }
-        CommitRevealBatchKind::Parameterized { address, commit_amount_sompi } => {
+        CommitRevealBatchKind::Parameterized { address, commit_amount_san } => {
             let redeem_script = lock_script_sig_templating_bytes(script_sig.to_vec(), Some(&address.payload))
                 .map_err(|_| Error::RevealRedeemScriptTemplateError)?;
 
             let lock_address = script_sig_to_address(&redeem_script, network_id.into())?;
 
-            let amt_reveal: u64 = commit_amount_sompi - reveal_fee_sompi;
+            let amt_reveal: u64 = commit_amount_san - reveal_fee_san;
 
             BundleCommitRevealConfig {
                 address_commit: lock_address.clone(),
                 addresses_reveal: vec![address.clone()],
-                commit_destination: PaymentDestination::from(PaymentOutput::new(lock_address, commit_amount_sompi)),
+                commit_destination: PaymentDestination::from(PaymentOutput::new(lock_address, commit_amount_san)),
                 redeem_script,
                 payment_outputs: PaymentOutputs { outputs: vec![PaymentOutput::new(address.clone(), amt_reveal)] },
             }

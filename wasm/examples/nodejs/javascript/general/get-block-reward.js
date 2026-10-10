@@ -2,19 +2,18 @@
 globalThis.WebSocket = require("websocket").w3cwebsocket; // W3C WebSocket module shim
 
 const kaspa = require("../../../../nodejs/kaspa");
-const { RpcClient, Encoding, Resolver } = kaspa;
+const { RpcClient } = kaspa;
+const { parseArgs, rpcUrl } = require("../utils");
 
 kaspa.initConsolePanicHook();
 
-const BLOCK_HASH =
-  "ab36f709e83bf6ba66e9516cbf02b9a9848a1b913e7c59cd5010e90928a27e22";
+const { networkId, encoding } = parseArgs();
 
 (async () => {
   const rpc = new RpcClient({
-    url: undefined,
-    encoding: Encoding.Borsh,
-    resolver: new Resolver(),
-    networkId: "mainnet",
+    url: rpcUrl(networkId),
+    encoding,
+    networkId,
   });
 
   console.log("Resolving RPC endpoint...");
@@ -22,10 +21,11 @@ const BLOCK_HASH =
   console.log(`Connected to ${rpc.url}`);
 
   try {
-    console.log("Querying block reward for block:", BLOCK_HASH);
+    const { sink } = await rpc.getBlockDagInfo();
+    console.log("Querying block reward for node sink:", sink);
 
     const rewardInfo = await rpc.getBlockRewardInfo({
-      hash: BLOCK_HASH,
+      hash: sink,
     });
 
     console.log({ rewardInfo });

@@ -1,5 +1,5 @@
 //!
-//! Module implementing [`Resolver`] client for obtaining public Kaspa wRPC endpoints.
+//! Module implementing [`Resolver`] client for obtaining explicitly configured wRPC endpoints.
 //!
 
 use std::sync::OnceLock;
@@ -14,8 +14,6 @@ use workflow_core::runtime;
 use workflow_http::get_json;
 
 const CURRENT_VERSION: usize = 2;
-const RESOLVER_CONFIG: &str = include_str!("../Resolvers.toml");
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolverRecord {
     pub address: String,
@@ -37,6 +35,7 @@ pub struct ResolverConfig {
     resolvers: Vec<ResolverRecord>,
 }
 
+#[cfg(test)]
 fn try_parse_resolvers(toml: &str) -> Result<Vec<Arc<String>>> {
     let config = toml::from_str::<ResolverConfig>(toml)?;
 
@@ -71,23 +70,18 @@ impl Inner {
             panic!("Resolver: Empty URL list supplied to the constructor.");
         }
 
-        let mut public = false;
-        let urls = urls.unwrap_or_else(|| {
-            public = true;
-            try_parse_resolvers(RESOLVER_CONFIG).expect("TOML: Unable to parse RPC Resolver list")
-        });
+        let public = false;
+        let urls = urls.unwrap_or_default();
 
         Self { urls, tls, public }
     }
 }
 
 ///
-/// # Resolver - a client for obtaining public Kaspa wRPC endpoints.
+/// # Resolver - a client for obtaining configured wRPC endpoints.
 ///
-/// This client operates against [Kaspa Resolver](https://github.com/aspectron/kaspa-resolver) service
-/// that provides load-balancing and failover capabilities for Kaspa wRPC endpoints. The default
-/// configuration allows access to public Kaspa nodes, while custom configurations can be supplied
-/// if you are running your own custom Kaspa node cluster.
+/// No resolver endpoint is selected by default. Configure an explicitly trusted
+/// network resolver, or use a direct RPC URL.
 ///
 #[derive(Debug, Clone)]
 pub struct Resolver {
@@ -140,7 +134,7 @@ impl Resolver {
             }
         });
 
-        format!("{url}/v{CURRENT_VERSION}/kaspa/{network_id}/{tls}/wrpc/{encoding}")
+        format!("{url}/v{CURRENT_VERSION}/slug/{network_id}/{tls}/wrpc/{encoding}")
     }
 
     // query a single resolver service
@@ -153,6 +147,10 @@ impl Resolver {
 
     // query multiple resolver services in random order
     async fn fetch(&self, encoding: Encoding, network_id: NetworkId) -> Result<NodeDescriptor> {
+        if self.inner.urls.is_empty() {
+            return Err(Error::custom("No resolver URLs configured; use a direct RPC URL or configure a trusted network resolver."));
+        }
+
         let mut urls = self.inner.urls.clone();
         urls.shuffle(&mut thread_rng());
 
@@ -166,12 +164,12 @@ impl Resolver {
         Err(Error::Custom(format!("Failed to connect: {:?}", errors)))
     }
 
-    /// Obtain a Kaspa p2p [`NodeDescriptor`] from the resolver based on the supplied [`Encoding`] and [`NetworkId`].
+    /// Obtain a p2p [`NodeDescriptor`] from the resolver based on the supplied [`Encoding`] and [`NetworkId`].
     pub async fn get_node(&self, encoding: Encoding, network_id: NetworkId) -> Result<NodeDescriptor> {
         self.fetch(encoding, network_id).await
     }
 
-    /// Returns a Kaspa wRPC URL from the resolver based on the supplied [`Encoding`] and [`NetworkId`].
+    /// Returns a wRPC URL from the resolver based on the supplied [`Encoding`] and [`NetworkId`].
     pub async fn get_url(&self, encoding: Encoding, network_id: NetworkId) -> Result<String> {
         let nodes = self.fetch(encoding, network_id).await?;
         Ok(nodes.url.clone())
@@ -206,8 +204,14 @@ mod tests {
     }
 
     #[test]
-    fn test_resolver_config_2() {
-        let _urls = try_parse_resolvers(RESOLVER_CONFIG).expect("TOML: Unable to parse RPC Resolver list");
-        // println!("{:#?}", urls);
+    fn test_default_resolver_has_no_endpoints() {
+        assert_eq!(Resolver::default().urls(), Some(Vec::new()));
+    }
+
+    #[tokio::test]
+    async fn default_resolver_fails_closed_without_network_endpoints() {
+        let network_id = NetworkId::from_prefixed("slug-mainnet").unwrap();
+        let error = Resolver::default().get_url(WrpcEncoding::Borsh, network_id).await.unwrap_err();
+        assert!(error.to_string().contains("No resolver URLs configured"));
     }
 }

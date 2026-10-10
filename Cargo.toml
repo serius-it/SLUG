@@ -76,7 +76,7 @@ rust-version = "1.91.0"
 version = "2.1.0"
 authors = ["Kaspa developers"]
 license = "ISC"
-repository = "https://github.com/kaspanet/rusty-kaspa"
+repository = "https://github.com/serius-it/SLUG"
 edition = "2024"
 include = [
     "src/**/*.rs",

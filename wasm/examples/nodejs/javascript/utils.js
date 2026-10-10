@@ -46,7 +46,7 @@ function parseArgs(options = {
         }, tokens: true, allowPositionals: true
     });
     if (values.help) {
-        console.log(`Usage: node ${script} [address] [mainnet|testnet-10|testnet-11] [--address <address>] [--network <mainnet|testnet-10|testnet-11>] [--encoding <borsh|json>] ${options.additionalHelpOutput}`);
+        console.log(`Usage: node ${script} [address] [slug-mainnet|slug-testnet-1|slug-devnet|slug-simnet] [--address <address>] [--network <slug-network>] [--encoding <borsh|json>] ${options.additionalHelpOutput}`);
         process.exit(0);
     }
 
@@ -60,13 +60,13 @@ function parseArgs(options = {
         process.exit(0);
     }
 
-    const addressRegex = new RegExp(/(kaspa|kaspatest):\S+/i);
+    const addressRegex = new RegExp(/(slug|slugtest|slugdev|slugsim):\S+/i);
     const addressArg = values.address ?? positionals.find((positional) => addressRegex.test(positional)) ?? null;
     const address = addressArg === null ? null : new Address(addressArg);
 
-    const networkArg = values.network ?? positionals.find((positional) => positional.match(/^(testnet|mainnet|simnet|devnet)-\d+$/)) ?? config.networkId ?? null;
+    const networkArg = values.network ?? positionals.find((positional) => positional.match(/^slug-(mainnet|testnet-1|devnet|simnet)$/)) ?? config.networkId ?? null;
     if (!networkArg) {
-        console.error('Network id must be specified: --network=(mainnet|testnet-<number>)');
+        console.error('Network id must be specified: --network=slug-(mainnet|testnet-1|devnet|simnet)');
         process.exit(1);
     }
     const networkId = new NetworkId(networkArg);
@@ -85,6 +85,22 @@ function parseArgs(options = {
     };
 }
 
+function rpcUrl(networkId) {
+    const network = networkId.toString().replace(/^slug-/, '');
+    const ports = {
+        mainnet: 19112,
+        'testnet-1': 19212,
+        devnet: 19312,
+        simnet: 19412,
+    };
+    const port = ports[network];
+    if (!port) {
+        throw new Error(`Unsupported SLUG network: ${networkId}`);
+    }
+    return `ws://127.0.0.1:${port}`;
+}
+
 module.exports = {
     parseArgs,
+    rpcUrl,
 };

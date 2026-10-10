@@ -11,7 +11,7 @@ const {
 
 (async () => {
 
-    const networkId = 'mainnet';
+    const networkId = 'slug-mainnet';
 
     const mnemonic = Mnemonic.random();
     const xprv = new XPrv(mnemonic.toSeed());
@@ -33,7 +33,7 @@ const {
     const { transactions, summary } = await createTransactions({
         entries,
         outputs: [{
-            address: 'kaspa:qpamkvhgh0kzx50gwvvp5xs8ktmqutcy3dfs9dc3w7lm9rq0zs76vf959mmrp',
+            address: 'slug:qpamkvhgh0kzx50gwvvp5xs8ktmqutcy3dfs9dc3w7lm9rq0zs76vwpkn7d08',
             amount: 400000000n
         }],
         changeAddress: address,

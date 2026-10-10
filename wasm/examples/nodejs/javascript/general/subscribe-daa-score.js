@@ -2,10 +2,9 @@
 globalThis.WebSocket = require('websocket').w3cwebsocket; // W3C WebSocket module shim
 
 const kaspa = require('../../../../nodejs/kaspa');
-const { parseArgs } = require("../utils");
+const { parseArgs, rpcUrl } = require("../utils");
 const {
     RpcClient,
-    Resolver,
     // RpcEventType
 } = kaspa;
 
@@ -19,7 +18,8 @@ const {
 (async () => {
 
     const rpc = new RpcClient({
-        resolver: new Resolver(),
+        url: rpcUrl(networkId),
+        encoding,
         networkId
     });
 

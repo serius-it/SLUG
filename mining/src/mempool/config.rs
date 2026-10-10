@@ -15,8 +15,8 @@ pub(crate) const DEFAULT_MAXIMUM_ORPHAN_TRANSACTION_NORMALIZED_MASS: u64 = 500_0
 pub(crate) const DEFAULT_MAXIMUM_ORPHAN_TRANSACTION_COUNT: u64 = 500;
 
 /// DEFAULT_MINIMUM_RELAY_TRANSACTION_FEE specifies the minimum transaction fee for a transaction to be accepted to
-/// the mempool and relayed. It is specified in sompi per 1kg (or 1000 grams) of transaction mass.
-/// The default is 100 sompi per gram.
+/// the mempool and relayed. It is specified in san per 1kg (or 1000 grams) of transaction mass.
+/// The default is 100 san per gram.
 pub(crate) const DEFAULT_MINIMUM_RELAY_TRANSACTION_FEE: u64 = 100_000;
 
 #[derive(Clone, Debug)]
@@ -136,7 +136,7 @@ impl Config {
 
     /// Returns the minimum standard fee/mass ratio currently required by the mempool
     pub(crate) fn minimum_feerate(&self) -> f64 {
-        // The parameter minimum_relay_transaction_fee is in sompi/kg units so divide by 1000 to get sompi/gram
+        // The parameter minimum_relay_transaction_fee is in san/kg units so divide by 1000 to get san/gram
         self.minimum_relay_transaction_fee as f64 / 1000.0
     }
 }

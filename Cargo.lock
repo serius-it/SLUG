@@ -3569,7 +3569,10 @@ name = "kaspa-grpc-simple-client-example"
 version = "2.1.0"
 dependencies = [
  "futures",
+ "kaspa-addresses",
+ "kaspa-consensus-core",
  "kaspa-grpc-client",
+ "kaspa-pow",
  "kaspa-rpc-core",
  "tokio",
 ]
@@ -4553,6 +4556,7 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "thiserror 2.0.18",
+ "tokio",
  "toml",
  "wasm-bindgen",
  "wasm-bindgen-futures",

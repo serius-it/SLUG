@@ -121,17 +121,17 @@ impl Account {
                                         if let Some(txid) = txid {
                                             tprintln!(
                                                 ctx_,
-                                                "Scan detected {} KAS at index {}; transfer txid: {}",
-                                                sompi_to_kaspa_string(balance),
+                                                "Scan detected {} SLG at index {}; transfer txid: {}",
+                                                san_to_slg_string(balance),
                                                 processed,
                                                 txid
                                             );
                                         } else if processed > 0 {
                                             tprintln!(
                                                 ctx_,
-                                                "Scanned {} derivations, found {} KAS",
+                                                "Scanned {} derivations, found {} SLG",
                                                 processed,
-                                                sompi_to_kaspa_string(balance)
+                                                san_to_slg_string(balance)
                                             );
                                         } else {
                                             tprintln!(ctx_, "Please wait... scanning for account UTXOs...");
@@ -302,13 +302,13 @@ impl Account {
                     if let Some(txid) = txid {
                         tprintln!(
                             ctx_,
-                            "Scan detected {} KAS at index {}; transfer txid: {}",
-                            sompi_to_kaspa_string(balance),
+                            "Scan detected {} SLG at index {}; transfer txid: {}",
+                            san_to_slg_string(balance),
                             processed,
                             txid
                         );
                     } else {
-                        tprintln!(ctx_, "Scanned {} derivations, found {} KAS", processed, sompi_to_kaspa_string(balance));
+                        tprintln!(ctx_, "Scanned {} derivations, found {} SLG", processed, san_to_slg_string(balance));
                     }
                 })),
             )
